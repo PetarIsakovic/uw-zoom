@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Upload | UW Zoom</title>
+    <meta
+      name="description"
+      content="Submit an image to UW Zoom. Uploads stay pending until approved."
+    />
+    <link rel="stylesheet" href="/styles/global.css" />
+    <link rel="stylesheet" href="/styles/upload.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand brand-small" href="/">UW Zoom</a>
+      <nav class="header-actions" aria-label="Primary">
+        <a class="ghost-button" href="/play/">Play</a>
+      </nav>
+    </header>
+
+    <main class="upload-layout">
+      <section class="panel upload-panel">
+        <p class="eyebrow">Submit photos</p>
+        <h1 class="panel-title">Upload a new image</h1>
+        <p class="panel-copy">
+          Images are stored in AWS, marked as pending, and only appear in the game once you approve
+          them.
+        </p>
+
+        <form class="upload-form" id="upload-form">
+          <label class="field-group">
+            <span class="field-label">What is the answer?</span>
+            <input class="text-input" type="text" name="answer" maxlength="80" required />
+          </label>
+
+          <label class="field-group">
+            <span class="field-label">Other accepted answers</span>
+            <input
+              class="text-input"
+              type="text"
+              name="alternateAnswers"
+              placeholder="comma, separated, aliases"
+            />
+          </label>
+
+          <div class="field-grid">
+            <label class="field-group">
+              <span class="field-label">Name</span>
+              <input class="text-input" type="text" name="uploaderName" maxlength="80" />
+            </label>
+
+            <label class="field-group">
+              <span class="field-label">Email</span>
+              <input class="text-input" type="email" name="uploaderEmail" maxlength="120" />
+            </label>
+          </div>
+
+          <label class="field-group">
+            <span class="field-label">Notes</span>
+            <textarea class="text-area" name="notes" rows="4" maxlength="400"></textarea>
+          </label>
+
+          <label class="field-group">
+            <span class="field-label">Image file</span>
+            <input
+              class="file-input"
+              id="image-file"
+              type="file"
+              name="image"
+              accept="image/jpeg,image/png,image/webp"
+              required
+            />
+          </label>
+
+          <figure class="file-preview" id="file-preview" hidden>
+            <img id="preview-image" alt="Selected upload preview" />
+          </figure>
+
+          <button class="button button-primary" type="submit">Upload for review</button>
+        </form>
+
+        <p class="status-message" id="upload-status" data-tone="default">
+          JPEG, PNG, and WebP are supported. Keep uploads concise and clearly guessable.
+        </p>
+      </section>
+
+      <section class="panel review-panel">
+        <p class="eyebrow">Owner review</p>
+        <h2 class="panel-title">Approve pending uploads</h2>
+        <p class="panel-copy">
+          Enter your admin key to review submissions from this page. That key stays local to this
+          browser session.
+        </p>
+
+        <div class="admin-lockup">
+          <input
+            class="text-input"
+            id="admin-key"
+            type="password"
+            placeholder="Admin key"
+            autocomplete="current-password"
+          />
+          <button class="button button-secondary" id="load-pending" type="button">
+            Unlock review
+          </button>
+        </div>
+
+        <p class="status-message" id="review-status" data-tone="default">
+          Pending submissions will appear here once review is unlocked.
+        </p>
+
+        <div class="review-list" id="pending-list"></div>
+      </section>
+    </main>
+
+    <script type="module" src="/scripts/upload.js"></script>
+  </body>
+</html>

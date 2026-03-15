@@ -1,0 +1,104 @@
+.upload-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.95fr);
+  gap: 1.25rem;
+  padding: 1rem clamp(1.2rem, 3vw, 2.25rem) 2rem;
+}
+
+.upload-panel,
+.review-panel {
+  padding: clamp(1.35rem, 2vw, 1.8rem);
+}
+
+.upload-form {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1.35rem;
+}
+
+.field-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem;
+}
+
+.file-preview {
+  margin: 0;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(17, 17, 17, 0.08);
+}
+
+.file-preview img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+}
+
+.admin-lockup {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.75rem;
+  margin-top: 1.35rem;
+}
+
+.review-list {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.review-card {
+  display: grid;
+  gap: 0.9rem;
+  padding: 1rem;
+  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.66);
+  border: 1px solid rgba(17, 17, 17, 0.08);
+}
+
+.review-thumb {
+  overflow: hidden;
+  border-radius: calc(var(--radius-lg) - 8px);
+}
+
+.review-thumb img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+}
+
+.review-card h3 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.review-copy {
+  display: grid;
+  gap: 0.45rem;
+  color: var(--muted);
+}
+
+.review-copy p {
+  margin: 0;
+  line-height: 1.6;
+}
+
+.review-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+@media (max-width: 960px) {
+  .upload-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 680px) {
+  .field-grid,
+  .admin-lockup {
+    grid-template-columns: 1fr;
+  }
+}

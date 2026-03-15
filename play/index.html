@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Play | UW Zoom</title>
+    <meta
+      name="description"
+      content="Guess the image before UW Zoom fully zooms out."
+    />
+    <link rel="stylesheet" href="/styles/global.css" />
+    <link rel="stylesheet" href="/styles/play.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand brand-small" href="/">UW Zoom</a>
+      <nav class="header-actions" aria-label="Primary">
+        <a class="ghost-button" href="/">Home</a>
+      </nav>
+    </header>
+
+    <main class="play-layout">
+      <section class="panel play-panel">
+        <div class="panel-topline">
+          <div>
+            <p class="eyebrow">Round</p>
+            <h1 class="panel-title">Guess the image</h1>
+          </div>
+          <div class="play-meta">
+            <span class="meta-pill" id="round-status">Loading images...</span>
+            <span class="meta-pill meta-pill-accent" id="guess-meter">4 guesses left</span>
+          </div>
+        </div>
+
+        <div class="image-stage">
+          <div class="image-frame">
+            <img id="game-image" alt="Current round" />
+          </div>
+        </div>
+
+        <p class="status-message" id="feedback" data-tone="default">
+          Type what you think the image is. Every wrong guess zooms out a little more.
+        </p>
+
+        <form class="guess-form" id="guess-form" autocomplete="off">
+          <label class="field-label" for="guess-input">Your guess</label>
+          <div class="guess-row">
+            <input
+              class="text-input"
+              id="guess-input"
+              name="guess"
+              type="text"
+              placeholder="Coffee mug, backpack, camera..."
+              maxlength="80"
+              required
+            />
+            <button class="button button-primary" type="submit">Guess</button>
+          </div>
+        </form>
+
+        <div class="action-row">
+          <button class="button button-secondary" id="next-button" type="button" hidden>
+            Next image
+          </button>
+        </div>
+      </section>
+
+      <aside class="panel side-panel">
+        <p class="eyebrow">How it works</p>
+        <h2 class="panel-title">Tiny detail first</h2>
+        <p class="side-copy">
+          Every round begins with an aggressive zoom. After each miss, the image eases out. If you
+          still miss after the fourth guess, the full image appears with the answer.
+        </p>
+      </aside>
+    </main>
+
+    <script type="module" src="/scripts/play.js"></script>
+  </body>
+</html>
