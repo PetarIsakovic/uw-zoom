@@ -42,7 +42,7 @@ export function requireStorage() {
   if (!config.region || !config.bucket) {
     throw new HttpError(
       503,
-      "AWS storage is not configured. Add UWZ_AWS_REGION, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, and UWZ_S3_BUCKET in Netlify.",
+      "AWS storage is not configured. Add UWZ_AWS_REGION, UWZ_AWS_ACCESS_KEY_ID, UWZ_AWS_SECRET_ACCESS_KEY, and UWZ_S3_BUCKET in Netlify.",
     );
   }
 
@@ -236,7 +236,12 @@ export function toApprovedImageKey(id, originalKey) {
 function getClient() {
   if (!cachedClient) {
     const { region } = requireStorage();
-    cachedClient = new S3Client({ region });
+    const credentials = resolveStorageCredentials();
+
+    cachedClient = new S3Client({
+      region,
+      ...(credentials ? { credentials } : {}),
+    });
   }
 
   return cachedClient;
@@ -258,6 +263,21 @@ function buildCopySource(bucket, key) {
 
 function resolveStorageRegion() {
   return process.env.UWZ_AWS_REGION || process.env.AWS_REGION || "";
+}
+
+function resolveStorageCredentials() {
+  const accessKeyId = process.env.UWZ_AWS_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID || "";
+  const secretAccessKey =
+    process.env.UWZ_AWS_SECRET_ACCESS_KEY || process.env.AWS_SECRET_ACCESS_KEY || "";
+
+  if (!accessKeyId || !secretAccessKey) {
+    return null;
+  }
+
+  return {
+    accessKeyId,
+    secretAccessKey,
+  };
 }
 
 async function streamToString(stream) {
