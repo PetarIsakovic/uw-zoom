@@ -97,7 +97,7 @@
 .landing-grid {
   width: min(1080px, 100%);
   display: grid;
-  grid-template-columns: minmax(15rem, 18rem) minmax(0, 1fr);
+  grid-template-columns: minmax(14rem, 18rem) minmax(0, 1fr) minmax(14rem, 18rem);
   align-items: center;
   gap: clamp(1.25rem, 3vw, 2.75rem);
   position: relative;
