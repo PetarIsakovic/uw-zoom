@@ -34,10 +34,10 @@ export const handler = withErrorHandling(async (event) => {
   const submission = {
     id,
     answer,
-    acceptedAnswers: uniqueValues(body.alternateAnswers),
-    uploaderName: String(body.uploaderName || "").trim(),
-    uploaderEmail: String(body.uploaderEmail || "").trim(),
-    notes: String(body.notes || "").trim(),
+    acceptedAnswers: [],
+    uploaderName: "",
+    uploaderEmail: "",
+    notes: "",
     imageKey,
     submittedAt: new Date().toISOString(),
     status: "pending",
@@ -50,23 +50,3 @@ export const handler = withErrorHandling(async (event) => {
     submission,
   });
 });
-
-function uniqueValues(value) {
-  const incoming = Array.isArray(value) ? value : [];
-  const seen = new Set();
-  const unique = [];
-
-  for (const item of incoming) {
-    const trimmed = String(item || "").trim();
-    const key = trimmed.toLowerCase();
-
-    if (!trimmed || seen.has(key)) {
-      continue;
-    }
-
-    seen.add(key);
-    unique.push(trimmed);
-  }
-
-  return unique;
-}

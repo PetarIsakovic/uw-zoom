@@ -29,6 +29,7 @@
           <div class="play-meta">
             <span class="meta-pill" id="round-status">Loading images...</span>
             <span class="meta-pill meta-pill-accent" id="guess-meter">4 guesses left</span>
+            <span class="meta-pill" id="streak-meter">Streak 0</span>
           </div>
         </div>
 
@@ -56,23 +57,44 @@
             />
             <button class="button button-primary" type="submit">Guess</button>
           </div>
+          <div class="suggestions-panel" id="guess-suggestions" hidden></div>
         </form>
 
         <div class="action-row">
           <button class="button button-secondary" id="next-button" type="button" hidden>
-            Next image
+            Play again
           </button>
         </div>
-      </section>
 
-      <aside class="panel side-panel">
-        <p class="eyebrow">How it works</p>
-        <h2 class="panel-title">Tiny detail first</h2>
-        <p class="side-copy">
-          Every round begins with an aggressive zoom. After each miss, the image eases out. If you
-          still miss after the fourth guess, the full image appears with the answer.
-        </p>
-      </aside>
+        <aside class="github-prompt" id="game-summary" hidden>
+          <p class="github-prompt-copy" id="game-summary-copy">
+            Score 0. High score 0.
+          </p>
+        </aside>
+
+        <aside class="github-prompt" id="game-github-prompt" hidden>
+          <p class="github-prompt-copy">
+            Enjoying UW Zoom? Star the GitHub repo ❤️
+          </p>
+          <a
+            class="button button-secondary"
+            href="https://github.com/PetarIsakovic/uw-zoom"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Star on GitHub
+          </a>
+        </aside>
+
+        <aside class="github-prompt" id="game-upload-prompt" hidden>
+          <p class="github-prompt-copy">
+            Have a good one? Upload your own photo and let other people guess it.
+          </p>
+          <a class="button button-primary" href="/upload/">
+            Upload your photo
+          </a>
+        </aside>
+      </section>
     </main>
 
     <script type="module" src="/scripts/play.js"></script>

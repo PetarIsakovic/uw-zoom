@@ -1,6 +1,40 @@
 .landing-shell {
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 46%, rgba(255, 255, 255, 0.82), transparent 18rem),
+    linear-gradient(180deg, #fbf7ef 0%, #f8f3eb 100%);
+}
+
+.landing-shell::before {
+  content: "";
+  position: fixed;
+  inset: -16vh -14vw;
+  background:
+    radial-gradient(circle at 50% 46%, rgba(255, 255, 255, 0.48), transparent 14rem),
+    radial-gradient(circle at 50% 46%, rgba(242, 180, 0, 0.16), transparent 26rem),
+    url("/assets/contours.svg") center center / cover no-repeat;
+  opacity: 0;
+  transform-origin: center center;
+  will-change: transform;
+  z-index: -3;
+  animation: landing-contour-zoom 18s linear infinite;
+}
+
+.landing-shell::after {
+  content: "";
+  position: fixed;
+  inset: -16vh -14vw;
+  background:
+    radial-gradient(circle at 50% 46%, rgba(255, 255, 255, 0.4), transparent 13rem),
+    radial-gradient(circle at 50% 46%, rgba(242, 180, 0, 0.12), transparent 24rem),
+    url("/assets/contours.svg") center center / cover no-repeat;
+  opacity: 0;
+  transform-origin: center center;
+  will-change: transform;
+  z-index: -2;
+  animation: landing-contour-zoom 18s linear infinite 9s;
 }
 
 .landing-main {
@@ -8,12 +42,64 @@
   display: grid;
   place-items: center;
   padding: 2rem 1.2rem 1rem;
+  position: relative;
+  isolation: isolate;
+}
+
+.landing-main::before,
+.landing-main::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.landing-main::before {
+  width: min(86vw, 1120px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  transform: translate(-50%, -53%) scale(0.82);
+  background:
+    radial-gradient(
+      circle,
+      transparent 0 20%,
+      rgba(255, 255, 255, 0.08) 20.3%,
+      transparent 20.8%,
+      transparent 30%,
+      rgba(242, 180, 0, 0.16) 30.4%,
+      transparent 31.1%,
+      transparent 42%,
+      rgba(17, 17, 17, 0.08) 42.5%,
+      transparent 43.2%,
+      transparent 54%,
+      rgba(242, 180, 0, 0.08) 54.5%,
+      transparent 55.2%
+    );
+  opacity: 0.16;
+  animation: landing-lens-outer 11s linear infinite;
+}
+
+.landing-main::after {
+  width: min(54vw, 680px);
+  aspect-ratio: 1;
+  border-radius: 32px;
+  transform: translate(-50%, -53%) scale(0.88);
+  border: 1px solid rgba(242, 180, 0, 0.2);
+  box-shadow:
+    0 0 0 14px rgba(255, 255, 255, 0.16),
+    0 0 0 36px rgba(242, 180, 0, 0.05);
+  opacity: 0.24;
+  animation: landing-lens-inner 7.5s linear infinite;
 }
 
 .hero-panel {
   width: min(760px, 100%);
   padding: clamp(2rem, 5vw, 4rem);
   text-align: center;
+  position: relative;
+  z-index: 1;
 }
 
 .wordmark {
@@ -51,6 +137,82 @@
   padding: 1rem 1.2rem 2rem;
   text-align: center;
   color: var(--muted);
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes landing-contour-zoom {
+  0% {
+    transform: scale(1);
+    opacity: 0;
+  }
+
+  10% {
+    opacity: 0.34;
+  }
+
+  70% {
+    opacity: 0.22;
+  }
+
+  100% {
+    transform: scale(1.24);
+    opacity: 0;
+  }
+}
+
+@keyframes landing-lens-outer {
+  0% {
+    transform: translate(-50%, -53%) scale(0.78);
+    opacity: 0.04;
+  }
+
+  12% {
+    opacity: 0.16;
+  }
+
+  100% {
+    transform: translate(-50%, -53%) scale(1.22);
+    opacity: 0;
+  }
+}
+
+@keyframes landing-lens-inner {
+  0% {
+    transform: translate(-50%, -53%) scale(0.86);
+    opacity: 0.08;
+  }
+
+  18% {
+    opacity: 0.22;
+  }
+
+  100% {
+    transform: translate(-50%, -53%) scale(1.1);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-shell::before {
+    inset: 0;
+    transform: none;
+    will-change: auto;
+    animation: none;
+  }
+
+  .landing-shell::after {
+    inset: 0;
+    transform: none;
+    will-change: auto;
+    animation: none;
+  }
+
+  .landing-main::before,
+  .landing-main::after {
+    animation: none;
+    opacity: 0.12;
+  }
 }
 
 @media (max-width: 600px) {

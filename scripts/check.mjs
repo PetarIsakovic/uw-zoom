@@ -2,14 +2,18 @@ import { execFileSync } from "node:child_process";
 import { resolve } from "node:path";
 
 const files = [
+  "shared/demo-images.js",
+  "shared/word-bank.js",
   "scripts/shared.js",
   "scripts/play.js",
+  "scripts/review.js",
   "scripts/upload.js",
   "netlify/functions/_lib/http.js",
   "netlify/functions/_lib/admin.js",
   "netlify/functions/_lib/demo-images.js",
   "netlify/functions/_lib/storage.js",
   "netlify/functions/approved-images.js",
+  "netlify/functions/word-bank.js",
   "netlify/functions/create-upload-url.js",
   "netlify/functions/submit-image.js",
   "netlify/functions/admin-submissions.js",

@@ -1,12 +1,10 @@
 .play-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1.8fr) minmax(280px, 0.9fr);
-  gap: 1.25rem;
+  width: min(960px, 100%);
+  margin: 0 auto;
   padding: 1rem clamp(1.2rem, 3vw, 2.25rem) 2rem;
 }
 
-.play-panel,
-.side-panel {
+.play-panel {
   padding: clamp(1.35rem, 2vw, 1.8rem);
 }
 
@@ -85,20 +83,6 @@
 
 .action-row {
   margin-top: 1rem;
-}
-
-.side-panel {
-  align-self: start;
-}
-
-@media (max-width: 940px) {
-  .play-layout {
-    grid-template-columns: 1fr;
-  }
-
-  .side-panel {
-    order: -1;
-  }
 }
 
 @media (max-width: 640px) {

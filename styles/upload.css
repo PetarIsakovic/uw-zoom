@@ -1,7 +1,12 @@
 .upload-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.95fr);
-  gap: 1.25rem;
+  width: min(760px, 100%);
+  margin: 0 auto;
+  padding: 1rem clamp(1.2rem, 3vw, 2.25rem) 2rem;
+}
+
+.review-layout {
+  width: min(860px, 100%);
+  margin: 0 auto;
   padding: 1rem clamp(1.2rem, 3vw, 2.25rem) 2rem;
 }
 
@@ -10,16 +15,67 @@
   padding: clamp(1.35rem, 2vw, 1.8rem);
 }
 
+.review-panel-standalone {
+  min-height: 60vh;
+}
+
 .upload-form {
   display: grid;
   gap: 1rem;
   margin-top: 1.35rem;
 }
 
-.field-grid {
+.upload-input-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  clip: rect(0 0 0 0);
+  overflow: hidden;
+}
+
+.drop-zone {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.9rem;
+  place-items: center;
+  gap: 0.45rem;
+  min-height: 280px;
+  padding: 2rem;
+  border: 1.5px dashed rgba(17, 17, 17, 0.16);
+  border-radius: var(--radius-xl);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.8), rgba(255, 248, 228, 0.72)),
+    rgba(255, 255, 255, 0.66);
+  text-align: center;
+  cursor: pointer;
+  transition:
+    border-color 180ms ease,
+    background-color 180ms ease,
+    transform 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.drop-zone:hover,
+.drop-zone:focus-visible,
+.drop-zone[data-dragging="true"] {
+  border-color: rgba(242, 180, 0, 0.9);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(255, 239, 191, 0.84)),
+    rgba(255, 255, 255, 0.82);
+  transform: translateY(-1px);
+  box-shadow: 0 18px 40px rgba(242, 180, 0, 0.12);
+  outline: none;
+}
+
+.drop-zone-kicker {
+  font-size: clamp(1.3rem, 3vw, 1.8rem);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+}
+
+.drop-zone-copy {
+  color: var(--muted);
 }
 
 .file-preview {
@@ -31,8 +87,17 @@
 
 .file-preview img {
   width: 100%;
-  aspect-ratio: 4 / 3;
+  aspect-ratio: 16 / 10;
   object-fit: cover;
+}
+
+.answer-panel {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.answer-input-minimal {
+  font-size: 1.05rem;
 }
 
 .admin-lockup {
@@ -90,14 +155,7 @@
   gap: 0.75rem;
 }
 
-@media (max-width: 960px) {
-  .upload-layout {
-    grid-template-columns: 1fr;
-  }
-}
-
 @media (max-width: 680px) {
-  .field-grid,
   .admin-lockup {
     grid-template-columns: 1fr;
   }

@@ -1,37 +1,18 @@
-import { csvToArray, formatDate, requestJson, setStatus } from "/scripts/shared.js";
+import { requestJson, setStatus } from "/scripts/shared.js";
 
 const uploadForm = document.querySelector("#upload-form");
+const dropZone = document.querySelector("#drop-zone");
 const fileInput = document.querySelector("#image-file");
 const uploadStatus = document.querySelector("#upload-status");
 const previewFrame = document.querySelector("#file-preview");
 const previewImage = document.querySelector("#preview-image");
-const adminKeyInput = document.querySelector("#admin-key");
-const loadPendingButton = document.querySelector("#load-pending");
-const reviewStatus = document.querySelector("#review-status");
-const pendingList = document.querySelector("#pending-list");
+const answerPanel = document.querySelector("#answer-panel");
+const answerInput = document.querySelector("#answer-input");
 
 let previewUrl = "";
-let adminKey = sessionStorage.getItem("uwz-admin-key") || "";
-
-if (adminKey) {
-  adminKeyInput.value = adminKey;
-}
 
 fileInput.addEventListener("change", () => {
-  const [file] = fileInput.files || [];
-
-  if (!file) {
-    clearPreview();
-    return;
-  }
-
-  if (previewUrl) {
-    URL.revokeObjectURL(previewUrl);
-  }
-
-  previewUrl = URL.createObjectURL(file);
-  previewImage.src = previewUrl;
-  previewFrame.hidden = false;
+  handleSelectedFile(fileInput.files?.[0] || null);
 });
 
 uploadForm.addEventListener("submit", async (event) => {
@@ -87,139 +68,51 @@ uploadForm.addEventListener("submit", async (event) => {
         id: uploadPayload.id,
         imageKey: uploadPayload.imageKey,
         answer,
-        alternateAnswers: csvToArray(formData.get("alternateAnswers")),
-        uploaderName: String(formData.get("uploaderName") || "").trim(),
-        uploaderEmail: String(formData.get("uploaderEmail") || "").trim(),
-        notes: String(formData.get("notes") || "").trim(),
       },
     });
 
     uploadForm.reset();
     clearPreview();
+    hideAnswerPanel();
     setStatus(uploadStatus, "Uploaded. The image is now waiting for approval.", "success");
-
-    if (adminKey) {
-      loadPending();
-    }
   } catch (error) {
     setStatus(uploadStatus, error.message, "error");
   }
 });
 
-loadPendingButton.addEventListener("click", async () => {
-  adminKey = adminKeyInput.value.trim();
-
-  if (!adminKey) {
-    setStatus(reviewStatus, "Enter your admin key to unlock review.", "warning");
-    return;
-  }
-
-  sessionStorage.setItem("uwz-admin-key", adminKey);
-  await loadPending();
+dropZone?.addEventListener("dragenter", (event) => {
+  event.preventDefault();
+  dropZone.dataset.dragging = "true";
 });
 
-pendingList.addEventListener("click", async (event) => {
-  const button = event.target.closest("[data-action]");
-
-  if (!button) {
-    return;
-  }
-
-  if (!adminKey) {
-    setStatus(reviewStatus, "Unlock review before moderating submissions.", "warning");
-    return;
-  }
-
-  const { id, action } = button.dataset;
-
-  try {
-    button.disabled = true;
-    setStatus(
-      reviewStatus,
-      action === "approve" ? "Approving submission..." : "Rejecting submission...",
-      "default",
-    );
-
-    await requestJson("/api/moderate-submission", {
-      method: "POST",
-      headers: adminHeaders(),
-      body: {
-        id,
-        action,
-      },
-    });
-
-    setStatus(
-      reviewStatus,
-      action === "approve" ? "Submission approved." : "Submission rejected.",
-      "success",
-    );
-    await loadPending();
-  } catch (error) {
-    setStatus(reviewStatus, error.message, "error");
-    button.disabled = false;
-  }
+dropZone?.addEventListener("dragover", (event) => {
+  event.preventDefault();
+  dropZone.dataset.dragging = "true";
 });
 
-async function loadPending() {
-  try {
-    setStatus(reviewStatus, "Loading pending submissions...", "default");
-    pendingList.innerHTML = "";
-
-    const payload = await requestJson("/api/admin-submissions", {
-      headers: adminHeaders(),
-    });
-
-    renderPending(payload.submissions || []);
-
-    if (payload.submissions?.length) {
-      setStatus(reviewStatus, "Review unlocked.", "success");
-    } else {
-      setStatus(reviewStatus, "No pending uploads right now.", "default");
-    }
-  } catch (error) {
-    setStatus(reviewStatus, error.message, "error");
-  }
-}
-
-function renderPending(submissions) {
-  pendingList.innerHTML = "";
-
-  if (!submissions.length) {
+dropZone?.addEventListener("dragleave", (event) => {
+  if (event.relatedTarget && dropZone.contains(event.relatedTarget)) {
     return;
   }
 
-  for (const submission of submissions) {
-    const card = document.createElement("article");
-    card.className = "review-card";
+  dropZone.dataset.dragging = "false";
+});
 
-    card.innerHTML = `
-      <div class="review-thumb">
-        <img src="${escapeHtml(submission.previewUrl)}" alt="${escapeHtml(submission.answer)}" />
-      </div>
-      <div class="review-copy">
-        <h3>${escapeHtml(submission.answer)}</h3>
-        <p><strong>Accepted answers:</strong> ${escapeHtml(formatAliases(submission.acceptedAnswers))}</p>
-        <p><strong>Uploader:</strong> ${escapeHtml(submission.uploaderName || "Anonymous")}</p>
-        <p><strong>Email:</strong> ${escapeHtml(submission.uploaderEmail || "Not provided")}</p>
-        <p><strong>Submitted:</strong> ${escapeHtml(formatDate(submission.submittedAt))}</p>
-        <p><strong>Notes:</strong> ${escapeHtml(submission.notes || "None")}</p>
-      </div>
-      <div class="review-actions">
-        <button class="button button-primary" data-action="approve" data-id="${escapeHtml(submission.id)}" type="button">Approve</button>
-        <button class="button button-secondary" data-action="reject" data-id="${escapeHtml(submission.id)}" type="button">Reject</button>
-      </div>
-    `;
+dropZone?.addEventListener("drop", (event) => {
+  event.preventDefault();
+  dropZone.dataset.dragging = "false";
 
-    pendingList.append(card);
+  const file = event.dataTransfer?.files?.[0] || null;
+
+  if (!file) {
+    return;
   }
-}
 
-function adminHeaders() {
-  return {
-    "x-admin-key": adminKey,
-  };
-}
+  const transfer = new DataTransfer();
+  transfer.items.add(file);
+  fileInput.files = transfer.files;
+  handleSelectedFile(file);
+});
 
 function clearPreview() {
   if (previewUrl) {
@@ -229,17 +122,41 @@ function clearPreview() {
 
   previewFrame.hidden = true;
   previewImage.removeAttribute("src");
+  if (dropZone) {
+    dropZone.dataset.dragging = "false";
+  }
+}
+function handleSelectedFile(file) {
+  if (!file) {
+    clearPreview();
+    hideAnswerPanel();
+    return;
+  }
+
+  if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+    setStatus(uploadStatus, "Only JPEG, PNG, or WebP uploads are supported.", "error");
+    fileInput.value = "";
+    clearPreview();
+    hideAnswerPanel();
+    return;
+  }
+
+  if (previewUrl) {
+    URL.revokeObjectURL(previewUrl);
+  }
+
+  previewUrl = URL.createObjectURL(file);
+  previewImage.src = previewUrl;
+  previewFrame.hidden = false;
+  answerPanel.hidden = false;
+  setStatus(uploadStatus, "Image selected. Now give it a name.", "default");
+  answerInput?.focus();
 }
 
-function formatAliases(values) {
-  return values?.length ? values.join(", ") : "Only the main answer";
-}
+function hideAnswerPanel() {
+  if (!answerPanel) {
+    return;
+  }
 
-function escapeHtml(value) {
-  return String(value)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
+  answerPanel.hidden = true;
 }

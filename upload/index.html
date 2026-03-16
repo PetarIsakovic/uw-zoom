@@ -23,94 +23,47 @@
       <section class="panel upload-panel">
         <p class="eyebrow">Submit photos</p>
         <h1 class="panel-title">Upload a new image</h1>
-        <p class="panel-copy">
-          Images are stored in AWS, marked as pending, and only appear in the game once you approve
-          them.
-        </p>
 
         <form class="upload-form" id="upload-form">
-          <label class="field-group">
-            <span class="field-label">What is the answer?</span>
-            <input class="text-input" type="text" name="answer" maxlength="80" required />
-          </label>
+          <input
+            class="file-input upload-input-hidden"
+            id="image-file"
+            type="file"
+            name="image"
+            accept="image/jpeg,image/png,image/webp"
+            required
+          />
 
-          <label class="field-group">
-            <span class="field-label">Other accepted answers</span>
-            <input
-              class="text-input"
-              type="text"
-              name="alternateAnswers"
-              placeholder="comma, separated, aliases"
-            />
-          </label>
-
-          <div class="field-grid">
-            <label class="field-group">
-              <span class="field-label">Name</span>
-              <input class="text-input" type="text" name="uploaderName" maxlength="80" />
-            </label>
-
-            <label class="field-group">
-              <span class="field-label">Email</span>
-              <input class="text-input" type="email" name="uploaderEmail" maxlength="120" />
-            </label>
-          </div>
-
-          <label class="field-group">
-            <span class="field-label">Notes</span>
-            <textarea class="text-area" name="notes" rows="4" maxlength="400"></textarea>
-          </label>
-
-          <label class="field-group">
-            <span class="field-label">Image file</span>
-            <input
-              class="file-input"
-              id="image-file"
-              type="file"
-              name="image"
-              accept="image/jpeg,image/png,image/webp"
-              required
-            />
+          <label class="drop-zone" id="drop-zone" for="image-file" tabindex="0">
+            <span class="drop-zone-kicker">Drop an image here</span>
+            <span class="drop-zone-copy">or click to upload</span>
           </label>
 
           <figure class="file-preview" id="file-preview" hidden>
             <img id="preview-image" alt="Selected upload preview" />
           </figure>
 
-          <button class="button button-primary" type="submit">Upload for review</button>
+          <div class="answer-panel" id="answer-panel" hidden>
+            <label class="field-group">
+              <span class="field-label">What should this image be called?</span>
+              <input
+                class="text-input answer-input-minimal"
+                id="answer-input"
+                type="text"
+                name="answer"
+                maxlength="80"
+                placeholder="Type the answer"
+                required
+              />
+            </label>
+
+            <button class="button button-primary" type="submit">Upload for review</button>
+          </div>
         </form>
 
         <p class="status-message" id="upload-status" data-tone="default">
-          JPEG, PNG, and WebP are supported. Keep uploads concise and clearly guessable.
+          Drag in a JPEG, PNG, or WebP image to get started.
         </p>
-      </section>
-
-      <section class="panel review-panel">
-        <p class="eyebrow">Owner review</p>
-        <h2 class="panel-title">Approve pending uploads</h2>
-        <p class="panel-copy">
-          Enter your admin key to review submissions from this page. That key stays local to this
-          browser session.
-        </p>
-
-        <div class="admin-lockup">
-          <input
-            class="text-input"
-            id="admin-key"
-            type="password"
-            placeholder="Admin key"
-            autocomplete="current-password"
-          />
-          <button class="button button-secondary" id="load-pending" type="button">
-            Unlock review
-          </button>
-        </div>
-
-        <p class="status-message" id="review-status" data-tone="default">
-          Pending submissions will appear here once review is unlocked.
-        </p>
-
-        <div class="review-list" id="pending-list"></div>
       </section>
     </main>
 
