@@ -1,6 +1,6 @@
 import { normalizeAnswer, requestJson, setStatus } from "/scripts/shared.js";
 import { buildDemoImages } from "/shared/demo-images.js";
-import { WORD_BANK, createWordBankIndex, searchInWordBank } from "/shared/word-bank.js";
+import { WORD_BANK, createWordBankIndex } from "/shared/word-bank.js";
 
 const MAX_WRONG_GUESSES = 4;
 const ZOOM_LEVELS = [4.6, 3.2, 2.2, 1.45, 1];
@@ -11,13 +11,11 @@ const feedback = document.querySelector("#feedback");
 const image = document.querySelector("#game-image");
 const form = document.querySelector("#guess-form");
 const input = document.querySelector("#guess-input");
-const nextButton = document.querySelector("#next-button");
-const summaryCard = document.querySelector("#game-summary");
-const summaryCopy = document.querySelector("#game-summary-copy");
-const githubPrompt = document.querySelector("#game-github-prompt");
-const uploadPrompt = document.querySelector("#game-upload-prompt");
-const suggestionPanel = document.querySelector("#guess-suggestions");
+const ghostTyped = document.querySelector("#ghost-typed");
+const ghostSuffix = document.querySelector("#ghost-suffix");
 const HIGH_SCORE_STORAGE_KEY = "uwzoom-high-score";
+const LAST_RESULT_STORAGE_KEY = "uwzoom-last-result";
+const GAME_OVER_DELAY_MS = 950;
 let wordBank = [];
 let wordBankIndex = createWordBankIndex([]);
 
@@ -29,39 +27,55 @@ const state = {
   roundLocked: true,
   streak: 0,
   highScore: loadHighScore(),
+  inlineSuggestion: "",
 };
 
 init();
 
 input.addEventListener("input", () => {
-  renderSuggestions(input.value);
+  updateInlineSuggestion();
 });
 
 input.addEventListener("focus", () => {
-  renderSuggestions(input.value);
+  updateInlineSuggestion();
 });
 
-document.addEventListener("click", (event) => {
-  if (
-    suggestionPanel &&
-    !suggestionPanel.hidden &&
-    !suggestionPanel.contains(event.target) &&
-    event.target !== input
-  ) {
-    hideSuggestions();
-  }
-});
-
-suggestionPanel?.addEventListener("click", (event) => {
-  const button = event.target.closest("[data-word-bank-value]");
-
-  if (!button) {
+input.addEventListener("keydown", (event) => {
+  if (event.key === "Tab" && hasInlineSuggestion()) {
+    event.preventDefault();
+    acceptInlineSuggestion();
     return;
   }
 
-  input.value = button.dataset.wordBankValue || "";
-  hideSuggestions();
-  input.focus();
+  if (event.key === "ArrowRight" && hasInlineSuggestion()) {
+    const selectionStart = input.selectionStart ?? 0;
+    const selectionEnd = input.selectionEnd ?? 0;
+    const caretAtEnd =
+      selectionStart === input.value.length && selectionEnd === input.value.length;
+
+    if (caretAtEnd) {
+      event.preventDefault();
+      acceptInlineSuggestion();
+      return;
+    }
+  }
+
+  if (event.key === "Enter" && hasInlineSuggestion()) {
+    const selectionStart = input.selectionStart ?? 0;
+    const selectionEnd = input.selectionEnd ?? 0;
+    const caretAtEnd =
+      selectionStart === input.value.length && selectionEnd === input.value.length;
+
+    if (caretAtEnd) {
+      event.preventDefault();
+      acceptInlineSuggestion();
+      return;
+    }
+  }
+
+  if (event.key === "Escape") {
+    clearInlineSuggestion();
+  }
 });
 
 async function init() {
@@ -90,7 +104,9 @@ async function init() {
   } catch (error) {
     form.hidden = true;
     setStatus(feedback, error.message, "error");
-    guessMeter.textContent = "Waiting";
+    if (guessMeter) {
+      guessMeter.textContent = "Waiting";
+    }
   }
 }
 
@@ -101,7 +117,8 @@ form.addEventListener("submit", (event) => {
     return;
   }
 
-  const resolvedGuess = wordBankIndex.get(normalizeAnswer(input.value)) || null;
+  const typedGuess = normalizeAnswer(input.value);
+  const resolvedGuess = wordBankIndex.get(typedGuess) || null;
 
   if (!input.value.trim()) {
     setStatus(feedback, "Type a guess before submitting.", "warning");
@@ -109,13 +126,12 @@ form.addEventListener("submit", (event) => {
   }
 
   if (!resolvedGuess) {
-    setStatus(feedback, "Choose a guess from the word bank suggestions.", "warning");
-    renderSuggestions(input.value);
+    setStatus(feedback, "That guess is not in the word bank.", "warning");
     return;
   }
 
   input.value = resolvedGuess;
-  hideSuggestions();
+  clearInlineSuggestion();
 
   const guess = normalizeAnswer(resolvedGuess);
 
@@ -133,10 +149,12 @@ form.addEventListener("submit", (event) => {
         `Correct. It was ${state.current.answer}. We ran out of images and you won.`,
         "success",
       );
-      guessMeter.textContent = "All cleared";
-      nextButton.hidden = false;
-      showSummary("win", state.streak, state.highScore);
-      showGithubPrompt();
+      goToGameOver({
+        result: "win",
+        score: state.streak,
+        highScore: state.highScore,
+        answer: state.current.answer,
+      });
       return;
     }
 
@@ -145,7 +163,6 @@ form.addEventListener("submit", (event) => {
       `Correct. It was ${state.current.answer}. Streak ${state.streak}. Next image loading...`,
       "success",
     );
-    guessMeter.textContent = `${state.wrongGuesses} wrong`;
     window.setTimeout(() => {
       if (state.roundLocked) {
         loadNextRound();
@@ -168,11 +185,13 @@ form.addEventListener("submit", (event) => {
       `Out of guesses. The answer was ${state.current.answer}.`,
       "error",
     );
-    guessMeter.textContent = "0 guesses left";
     updateStreakMeter();
-    nextButton.hidden = false;
-    showSummary("loss", score, state.highScore);
-    showGithubPrompt();
+    goToGameOver({
+      result: "loss",
+      score,
+      highScore: state.highScore,
+      answer: state.current.answer,
+    });
     return;
   }
 
@@ -182,16 +201,10 @@ form.addEventListener("submit", (event) => {
   input.select();
 });
 
-nextButton.addEventListener("click", () => {
-  startNewGame();
-});
-
 function startNewGame() {
   state.runQueue = shuffleArray(state.images);
   state.streak = 0;
   updateStreakMeter();
-  hideSummary();
-  hideGithubPrompt();
   loadNextRound();
 }
 
@@ -213,11 +226,10 @@ function loadNextRound() {
   form.reset();
   input.disabled = false;
   input.focus();
-  nextButton.hidden = true;
-  hideSuggestions();
+  clearInlineSuggestion();
   updateGuessMeter();
   updateStreakMeter();
-  setStatus(feedback, "Guess what the image is before the fourth miss reveals everything.");
+  setStatus(feedback, "");
 }
 
 function updateZoom() {
@@ -235,11 +247,19 @@ function revealImage(isGameOver) {
 }
 
 function updateGuessMeter() {
+  if (!guessMeter) {
+    return;
+  }
+
   const guessesLeft = Math.max(0, MAX_WRONG_GUESSES - state.wrongGuesses);
   guessMeter.textContent = `${guessesLeft} guess${guessesLeft === 1 ? "" : "es"} left`;
 }
 
 function updateStreakMeter() {
+  if (!streakMeter) {
+    return;
+  }
+
   streakMeter.textContent = `Streak ${state.streak}`;
 }
 
@@ -254,88 +274,114 @@ function isCorrectGuess(guess, imageData) {
   });
 }
 
-function showGithubPrompt() {
-  if (githubPrompt) {
-    githubPrompt.hidden = false;
-  }
-
-  if (uploadPrompt) {
-    uploadPrompt.hidden = false;
-  }
-}
-
-function hideGithubPrompt() {
-  if (githubPrompt) {
-    githubPrompt.hidden = true;
-  }
-
-  if (uploadPrompt) {
-    uploadPrompt.hidden = true;
-  }
-}
-
-function showSummary(result, score, highScore) {
-  if (!summaryCard || !summaryCopy) {
+function updateInlineSuggestion() {
+  if (state.roundLocked || input.disabled) {
     return;
   }
 
-  summaryCopy.textContent =
-    result === "win"
-      ? `We ran out of images. You won with a score of ${score}. High score ${highScore}.`
-      : `Game over. Score ${score}. High score ${highScore}.`;
-  summaryCard.hidden = false;
-}
+  const typedValue = input.value;
+  const selectionStart = input.selectionStart ?? typedValue.length;
+  const selectionEnd = input.selectionEnd ?? typedValue.length;
+  const caretAtEnd = selectionStart === typedValue.length && selectionEnd === typedValue.length;
 
-function hideSummary() {
-  if (summaryCard) {
-    summaryCard.hidden = true;
-  }
-}
-
-function renderSuggestions(query) {
-  if (!suggestionPanel) {
+  if (!typedValue.trim() || !caretAtEnd) {
+    state.inlineSuggestion = "";
+    renderGhostSuggestion("");
     return;
   }
 
-  const suggestions = searchInWordBank(wordBank, query, 8);
+  const suggestion = findInlineSuggestion(typedValue);
 
-  if (!query.trim()) {
-    hideSuggestions();
+  if (!suggestion || suggestion === typedValue) {
+    state.inlineSuggestion = "";
+    renderGhostSuggestion("");
     return;
   }
 
-  suggestionPanel.hidden = false;
-
-  if (!suggestions.length) {
-    suggestionPanel.innerHTML =
-      '<p class="suggestions-empty">No word bank matches yet. Try a UW place, object, or campus term.</p>';
-    return;
-  }
-
-  suggestionPanel.innerHTML = suggestions
-    .map(
-      (value) =>
-        `<button class="suggestion-button" type="button" data-word-bank-value="${escapeHtml(value)}">${escapeHtml(value)}</button>`,
-    )
-    .join("");
+  state.inlineSuggestion = suggestion;
+  renderGhostSuggestion(suggestion);
 }
 
-function hideSuggestions() {
-  if (!suggestionPanel) {
+function findInlineSuggestion(query) {
+  const normalizedQuery = normalizeAnswer(query);
+
+  if (!normalizedQuery) {
+    return "";
+  }
+
+  for (const entry of wordBank) {
+    const normalizedEntry = normalizeAnswer(entry);
+
+    if (normalizedEntry.startsWith(normalizedQuery)) {
+      return entry;
+    }
+  }
+
+  return "";
+}
+
+function acceptInlineSuggestion() {
+  if (!hasInlineSuggestion()) {
     return;
   }
 
-  suggestionPanel.hidden = true;
-  suggestionPanel.innerHTML = "";
+  input.value = state.inlineSuggestion;
+  state.inlineSuggestion = "";
+  renderGhostSuggestion("");
+  input.setSelectionRange(input.value.length, input.value.length);
 }
 
-function escapeHtml(value) {
-  return String(value)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
+function renderGhostSuggestion(suggestion) {
+  if (!ghostTyped || !ghostSuffix) {
+    return;
+  }
+
+  const typedValue = input.value;
+  ghostTyped.textContent = typedValue;
+  ghostSuffix.textContent = suggestion.startsWith(typedValue)
+    ? suggestion.slice(typedValue.length)
+    : "";
+}
+
+function clearGhostSuggestion() {
+  if (!ghostTyped || !ghostSuffix) {
+    return;
+  }
+
+  ghostTyped.textContent = "";
+  ghostSuffix.textContent = "";
+}
+
+function clearInlineSuggestion() {
+  state.inlineSuggestion = "";
+  clearGhostSuggestion();
+}
+
+function hasInlineSuggestion() {
+  return Boolean(state.inlineSuggestion);
+}
+
+function goToGameOver(payload) {
+  const serialized = JSON.stringify(payload);
+
+  try {
+    window.sessionStorage.setItem(LAST_RESULT_STORAGE_KEY, serialized);
+    window.setTimeout(() => {
+      window.location.assign("/game-over/");
+    }, GAME_OVER_DELAY_MS);
+    return;
+  } catch {
+    const params = new URLSearchParams({
+      result: payload.result,
+      score: String(payload.score),
+      highScore: String(payload.highScore),
+      answer: payload.answer || "",
+    });
+
+    window.setTimeout(() => {
+      window.location.assign(`/game-over/?${params.toString()}`);
+    }, GAME_OVER_DELAY_MS);
+  }
 }
 
 function loadHighScore() {

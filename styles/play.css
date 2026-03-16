@@ -1,55 +1,69 @@
+.play-page {
+  min-height: 100svh;
+  height: 100dvh;
+  position: relative;
+  overflow: hidden;
+}
+
+.play-page::before {
+  background:
+    radial-gradient(circle at top left, rgba(242, 180, 0, 0.1), transparent 22rem),
+    radial-gradient(circle at bottom right, rgba(17, 17, 17, 0.04), transparent 24rem);
+}
+
+.play-page::after {
+  background: linear-gradient(180deg, rgba(248, 243, 235, 0.2), rgba(248, 243, 235, 0.72));
+}
+
+.play-page .site-header {
+  position: absolute;
+  inset: 0 0 auto 0;
+  z-index: 2;
+  padding-top: 0.95rem;
+  padding-bottom: 0;
+}
+
+.play-page .ghost-button,
+.play-page .button {
+  padding: 0.82rem 1.15rem;
+}
+
+.play-page .text-input {
+  padding: 0.82rem 0.95rem;
+}
+
 .play-layout {
-  width: min(960px, 100%);
+  width: min(920px, 100%);
   margin: 0 auto;
-  padding: 1rem clamp(1.2rem, 3vw, 2.25rem) 2rem;
+  min-height: 100%;
+  padding: 0 clamp(1rem, 2.6vw, 2rem) clamp(0.85rem, 2vw, 1.25rem);
+  display: flex;
 }
 
 .play-panel {
-  padding: clamp(1.35rem, 2vw, 1.8rem);
-}
-
-.panel-topline {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: 1.35rem;
-}
-
-.play-meta {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 0.65rem;
-}
-
-.meta-pill {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 999px;
-  background: rgba(17, 17, 17, 0.06);
-  padding: 0.7rem 0.9rem;
-  font-size: 0.88rem;
-  font-weight: 700;
-}
-
-.meta-pill-accent {
-  background: rgba(242, 180, 0, 0.18);
+  width: 100%;
+  min-height: 0;
+  padding: clamp(1rem, 1.6vw, 1.45rem);
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 0.7rem;
 }
 
 .image-stage {
-  margin-bottom: 1.25rem;
+  min-height: 0;
+  display: flex;
+  margin-bottom: 0;
 }
 
 .image-frame {
+  flex: 1 1 auto;
   position: relative;
   overflow: hidden;
   border-radius: calc(var(--radius-xl) - 8px);
   background:
     linear-gradient(135deg, rgba(255, 255, 255, 0.75), rgba(255, 255, 255, 0.4)),
     rgba(17, 17, 17, 0.05);
-  aspect-ratio: 4 / 3;
+  min-height: clamp(320px, 55vh, 620px);
 }
 
 .image-frame::after {
@@ -72,7 +86,14 @@
 
 .guess-form {
   display: grid;
-  gap: 0.65rem;
+  gap: 0.45rem;
+}
+
+.guess-meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
 }
 
 .guess-row {
@@ -81,18 +102,133 @@
   gap: 0.8rem;
 }
 
-.action-row {
-  margin-top: 1rem;
+.autocomplete-shell {
+  position: relative;
+}
+
+.autocomplete-ghost {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  padding: 0.82rem 0.95rem;
+  pointer-events: none;
+  white-space: nowrap;
+  overflow: hidden;
+  font: inherit;
+}
+
+.autocomplete-typed {
+  color: transparent;
+}
+
+.autocomplete-suffix {
+  color: rgba(17, 17, 17, 0.32);
+}
+
+.autocomplete-input {
+  position: relative;
+  z-index: 1;
+  background: transparent;
+}
+
+.field-label {
+  font-size: 0.86rem;
+  flex-shrink: 0;
+}
+
+.status-message {
+  min-height: 1.25rem;
+  font-size: 0.95rem;
+  text-align: right;
+}
+
+@media (max-width: 900px) {
+  .play-page .site-header {
+    padding-top: 0.8rem;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .play-page .brand-small {
+    font-size: 1.9rem;
+  }
+
+  .play-layout {
+    padding-top: clamp(3.2rem, 8vw, 4.75rem);
+  }
 }
 
 @media (max-width: 640px) {
-  .panel-topline,
+  .play-page {
+    height: auto;
+    overflow: auto;
+  }
+
+  .play-page .brand-small {
+    font-size: 1.55rem;
+  }
+
+  .guess-meta,
   .guess-row {
     grid-template-columns: 1fr;
     display: grid;
   }
 
-  .play-meta {
-    justify-content: flex-start;
+  .status-message {
+    text-align: left;
+  }
+
+  .play-layout {
+    padding-top: 3.4rem;
+    padding-bottom: 1rem;
+  }
+
+  .image-frame {
+    min-height: 0;
+    height: auto;
+    aspect-ratio: 4 / 3;
+  }
+}
+
+@media (max-height: 860px) and (min-width: 641px) {
+  .play-page .site-header {
+    padding-top: 0.8rem;
+    padding-bottom: 0;
+  }
+
+  .play-panel {
+    padding: 0.9rem 1rem;
+    gap: 0.6rem;
+  }
+
+  .image-frame {
+    min-height: clamp(280px, 50vh, 500px);
+  }
+
+  .status-message {
+    min-height: 1.15rem;
+    font-size: 0.9rem;
+  }
+
+  .guess-form .field-label {
+    font-size: 0.82rem;
+  }
+
+  .play-page .text-input,
+  .play-page .button {
+    padding-top: 0.74rem;
+    padding-bottom: 0.74rem;
+  }
+
+  .autocomplete-ghost {
+    padding-top: 0.74rem;
+    padding-bottom: 0.74rem;
+  }
+}
+
+@media (max-height: 760px) and (min-width: 641px) {
+  .image-frame {
+    min-height: clamp(240px, 44vh, 380px);
   }
 }
