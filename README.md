@@ -63,6 +63,7 @@ Create one private S3 bucket for UW Zoom uploads. The app uses these prefixes in
 - `pending/meta/`
 - `approved/images/`
 - `approved/meta/`
+- `app/leaderboard/`
 
 ### Recommended IAM permissions
 
@@ -101,6 +102,14 @@ Replace the Netlify domain with your real production URL.
 4. You unlock review on the upload page with `UWZ_ADMIN_KEY`.
 5. Approving a submission copies it to `approved/images/`, writes `approved/meta/`, and removes the pending files.
 6. Rejecting a submission deletes the pending file and metadata.
+
+## Leaderboard storage
+
+The shared streak leaderboard is stored in the same S3 bucket at:
+
+- `app/leaderboard/top-streaks.json`
+
+The frontend now reads and writes leaderboard data through Netlify Functions, so leaderboard state is shared across players instead of being saved in each browser.
 
 ## Deploy
 

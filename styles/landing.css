@@ -95,24 +95,27 @@
 }
 
 .landing-grid {
-  width: min(1120px, 100%);
+  width: min(1320px, 100%);
+  min-height: min(720px, calc(100vh - 10rem));
   display: grid;
-  grid-template-columns: minmax(16rem, 20rem) minmax(0, 1fr);
-  align-items: center;
-  gap: clamp(1.25rem, 3vw, 2.75rem);
+  place-items: center;
   position: relative;
   z-index: 1;
 }
 
 .landing-sidebar {
+  position: absolute;
+  left: max(1rem, calc(50% - 49rem));
+  top: 50%;
+  width: min(20rem, calc(100vw - 2rem));
   display: grid;
   gap: 1rem;
-  align-self: stretch;
+  transform: translateY(-50%);
 }
 
 .landing-leaderboard {
   padding: 1.15rem 1.2rem;
-  border: 1px solid rgba(17, 17, 17, 0.08);
+  border: 4px solid #111111;
   border-radius: 28px;
   background: rgba(255, 252, 246, 0.72);
   box-shadow: 0 20px 55px rgba(17, 17, 17, 0.06);
@@ -149,13 +152,19 @@
 }
 
 .landing-leaderboard-entry {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
   gap: 0.9rem;
   border-radius: 18px;
   background: rgba(255, 255, 255, 0.56);
   padding: 0.72rem 0.82rem;
+}
+
+.landing-leaderboard-player {
+  display: grid;
+  gap: 0.14rem;
+  min-width: 0;
 }
 
 .landing-leaderboard-name,
@@ -174,14 +183,29 @@
   letter-spacing: 0.08em;
 }
 
+.landing-leaderboard-metrics {
+  display: grid;
+  justify-items: end;
+  gap: 0.16rem;
+  text-align: right;
+}
+
 .landing-leaderboard-score {
   font-size: 0.98rem;
   letter-spacing: -0.03em;
   white-space: nowrap;
+  line-height: 1.1;
+}
+
+.landing-leaderboard-time {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 500;
+  line-height: 1.1;
 }
 
 .hero-panel {
-  width: min(780px, 100%);
+  width: min(780px, calc(100vw - 3rem));
   padding: clamp(2rem, 5vw, 4rem);
   text-align: center;
   justify-self: center;
@@ -208,6 +232,20 @@
   color: var(--muted);
   font-size: clamp(1rem, 2vw, 1.15rem);
   line-height: 1.7;
+}
+
+.hero-note-link {
+  color: var(--ink);
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-color: rgba(242, 180, 0, 0.75);
+  text-underline-offset: 0.18em;
+}
+
+.hero-note-link:hover,
+.hero-note-link:focus-visible {
+  color: var(--accent-deep);
+  outline: none;
 }
 
 .hero-actions {
@@ -300,10 +338,11 @@
   }
 }
 
-@media (max-width: 600px) {
+@media (max-width: 1180px) {
   .landing-grid {
     grid-template-columns: 1fr;
     gap: 1rem;
+    min-height: auto;
   }
 
   .hero-panel {
@@ -311,6 +350,10 @@
   }
 
   .landing-sidebar {
+    position: static;
+    left: auto;
+    top: auto;
+    transform: none;
     width: min(24rem, 100%);
     justify-self: center;
   }

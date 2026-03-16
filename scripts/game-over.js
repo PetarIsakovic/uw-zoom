@@ -1,5 +1,4 @@
-const HIGH_SCORE_STORAGE_KEY = "uwzoom-high-score";
-const LAST_RESULT_STORAGE_KEY = "uwzoom-last-result";
+import { requestJson, setStatus } from "/scripts/shared.js";
 
 const eyebrow = document.querySelector("#result-eyebrow");
 const title = document.querySelector("#result-title");
@@ -7,12 +6,21 @@ const copy = document.querySelector("#result-copy");
 const answer = document.querySelector("#result-answer");
 const scoreValue = document.querySelector("#score-value");
 const highScoreValue = document.querySelector("#high-score-value");
+const durationValue = document.querySelector("#duration-value");
+const leaderboardForm = document.querySelector("#leaderboard-form");
+const leaderboardNameInput = document.querySelector("#leaderboard-name");
+const leaderboardStatus = document.querySelector("#leaderboard-status");
+const playAgainButton = document.querySelector("#play-again-button");
 
-renderResult(loadResult());
+const result = loadResult();
+
+renderResult(result);
+initLeaderboardForm(result);
 
 function renderResult(result) {
   const score = normalizeScore(result.score);
-  const highScore = normalizeScore(result.highScore ?? loadHighScore());
+  const highScore = normalizeScore(result.highScore);
+  const durationMs = normalizeDurationMs(result.durationMs);
   const didWin = result.result === "win";
 
   if (eyebrow) {
@@ -25,8 +33,8 @@ function renderResult(result) {
 
   if (copy) {
     copy.textContent = didWin
-      ? `You cleared every image in the pool with a score of ${score}.`
-      : `You finished with a score of ${score}.`;
+      ? `You cleared every image in ${formatDuration(durationMs)} with a score of ${score}.`
+      : `You finished with a score of ${score} in ${formatDuration(durationMs)}.`;
   }
 
   if (answer) {
@@ -47,50 +55,93 @@ function renderResult(result) {
   if (highScoreValue) {
     highScoreValue.textContent = String(highScore);
   }
+
+  if (durationValue) {
+    durationValue.textContent = formatDuration(durationMs);
+  }
 }
 
-function loadResult() {
-  const storedResult = loadStoredResult();
-
-  if (storedResult) {
-    return storedResult;
+function initLeaderboardForm(result) {
+  if (!leaderboardForm || !leaderboardNameInput || !leaderboardStatus) {
+    return;
   }
 
-  const params = new URLSearchParams(window.location.search);
-  return {
-    result: params.get("result") || "loss",
-    score: params.get("score") || "0",
-    highScore: params.get("highScore") || String(loadHighScore()),
-    answer: params.get("answer") || "",
-  };
-}
+  leaderboardForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
 
-function loadStoredResult() {
-  try {
-    const rawValue = window.sessionStorage.getItem(LAST_RESULT_STORAGE_KEY);
+    const name = normalizePlayerName(leaderboardNameInput.value);
 
-    if (!rawValue) {
-      return null;
+    if (!name) {
+      setStatus(leaderboardStatus, "Type your name before jumping into another run.", "warning");
+      leaderboardNameInput.focus();
+      return;
     }
 
-    window.sessionStorage.removeItem(LAST_RESULT_STORAGE_KEY);
-    return JSON.parse(rawValue);
-  } catch {
-    return null;
-  }
-}
+    leaderboardNameInput.value = name;
+    if (playAgainButton) {
+      playAgainButton.disabled = true;
+    }
 
-function loadHighScore() {
-  try {
-    const value = window.localStorage.getItem(HIGH_SCORE_STORAGE_KEY);
-    const parsed = Number(value);
-    return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
-  } catch {
-    return 0;
-  }
+    try {
+      setStatus(leaderboardStatus, "Saving your run...", "default");
+
+      await requestJson("/api/leaderboard", {
+        method: "POST",
+        body: {
+          ...result,
+          name,
+        },
+      });
+
+      window.location.assign("/play/");
+    } catch (error) {
+      setStatus(leaderboardStatus, error.message, "error");
+      if (playAgainButton) {
+        playAgainButton.disabled = false;
+      }
+    }
+  });
 }
 
 function normalizeScore(value) {
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+}
+
+function normalizeDurationMs(value) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+}
+
+function formatDuration(value) {
+  const durationMs = normalizeDurationMs(value);
+  const totalSeconds = Math.floor(durationMs / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  if (hours > 0) {
+    return `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+  }
+
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
+}
+
+function normalizePlayerName(value) {
+  return String(value || "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .slice(0, 32);
+}
+
+function loadResult() {
+  const params = new URLSearchParams(window.location.search);
+
+  return {
+    result: params.get("result") || "loss",
+    score: params.get("score") || "0",
+    highScore: params.get("highScore") || "0",
+    answer: params.get("answer") || "",
+    durationMs: params.get("durationMs") || "0",
+  };
 }

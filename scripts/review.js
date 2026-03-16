@@ -5,11 +5,7 @@ const loadPendingButton = document.querySelector("#load-pending");
 const reviewStatus = document.querySelector("#review-status");
 const pendingList = document.querySelector("#pending-list");
 
-let adminKey = sessionStorage.getItem("uwz-admin-key") || "";
-
-if (adminKey && adminKeyInput) {
-  adminKeyInput.value = adminKey;
-}
+let adminKey = "";
 
 loadPendingButton?.addEventListener("click", async () => {
   adminKey = adminKeyInput?.value.trim() || "";
@@ -19,7 +15,6 @@ loadPendingButton?.addEventListener("click", async () => {
     return;
   }
 
-  sessionStorage.setItem("uwz-admin-key", adminKey);
   await loadPending();
 });
 

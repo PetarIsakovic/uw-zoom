@@ -8,6 +8,9 @@ const previewFrame = document.querySelector("#file-preview");
 const previewImage = document.querySelector("#preview-image");
 const answerPanel = document.querySelector("#answer-panel");
 const uploaderNameInput = document.querySelector("#uploader-name");
+const dropZonePromptText = document.querySelector("#drop-zone-prompt-text");
+const DROP_ZONE_IDLE_TEXT = "Upload an image here";
+const DROP_ZONE_ACTIVE_TEXT = "Drop image";
 
 let previewUrl = "";
 
@@ -90,12 +93,22 @@ uploadForm.addEventListener("submit", async (event) => {
 
 dropZone?.addEventListener("dragenter", (event) => {
   event.preventDefault();
+  if (!dragEventContainsFiles(event)) {
+    return;
+  }
+
   dropZone.dataset.dragging = "true";
+  setDropZonePrompt(DROP_ZONE_ACTIVE_TEXT);
 });
 
 dropZone?.addEventListener("dragover", (event) => {
   event.preventDefault();
+  if (!dragEventContainsFiles(event)) {
+    return;
+  }
+
   dropZone.dataset.dragging = "true";
+  setDropZonePrompt(DROP_ZONE_ACTIVE_TEXT);
 });
 
 dropZone?.addEventListener("dragleave", (event) => {
@@ -104,11 +117,13 @@ dropZone?.addEventListener("dragleave", (event) => {
   }
 
   dropZone.dataset.dragging = "false";
+  setDropZonePrompt(DROP_ZONE_IDLE_TEXT);
 });
 
 dropZone?.addEventListener("drop", (event) => {
   event.preventDefault();
   dropZone.dataset.dragging = "false";
+  setDropZonePrompt(DROP_ZONE_IDLE_TEXT);
 
   const file = event.dataTransfer?.files?.[0] || null;
 
@@ -133,7 +148,9 @@ function clearPreview() {
   if (dropZone) {
     dropZone.dataset.dragging = "false";
   }
+  setDropZonePrompt(DROP_ZONE_IDLE_TEXT);
 }
+
 function handleSelectedFile(file) {
   if (!file) {
     clearPreview();
@@ -167,4 +184,16 @@ function hideAnswerPanel() {
   }
 
   answerPanel.hidden = true;
+}
+
+function setDropZonePrompt(value) {
+  if (!dropZonePromptText) {
+    return;
+  }
+
+  dropZonePromptText.textContent = value;
+}
+
+function dragEventContainsFiles(event) {
+  return Array.from(event.dataTransfer?.types || []).includes("Files");
 }

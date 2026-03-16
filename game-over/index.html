@@ -22,26 +22,60 @@
 
     <main class="game-over-layout">
       <section class="panel game-over-panel">
-        <p class="eyebrow" id="result-eyebrow">Game over</p>
-        <h1 class="panel-title game-over-title" id="result-title">Score 0</h1>
-        <p class="panel-copy game-over-copy" id="result-copy">
-          Your run is finished.
-        </p>
-        <p class="game-over-answer" id="result-answer" hidden></p>
+        <div class="game-over-intro">
+          <p class="eyebrow" id="result-eyebrow">Game over</p>
+          <h1 class="panel-title game-over-title" id="result-title">Score 0</h1>
+          <p class="panel-copy game-over-copy" id="result-copy">
+            Your run is finished.
+          </p>
+          <p class="game-over-answer" id="result-answer" hidden></p>
+        </div>
 
-        <div class="game-over-stats" aria-label="Game summary">
-          <div class="stat-card">
-            <span class="stat-label">Score</span>
-            <strong class="stat-value" id="score-value">0</strong>
+        <div class="game-over-summary">
+          <div class="game-over-stats" aria-label="Game summary">
+            <div class="stat-card">
+              <span class="stat-label">Score</span>
+              <strong class="stat-value" id="score-value">0</strong>
+            </div>
+            <div class="stat-card">
+              <span class="stat-label">High score</span>
+              <strong class="stat-value" id="high-score-value">0</strong>
+            </div>
+            <div class="stat-card">
+              <span class="stat-label">Time</span>
+              <strong class="stat-value" id="duration-value">0:00</strong>
+            </div>
           </div>
-          <div class="stat-card">
-            <span class="stat-label">High score</span>
-            <strong class="stat-value" id="high-score-value">0</strong>
-          </div>
+
+          <form class="leaderboard-form" id="leaderboard-form" autocomplete="off">
+            <label class="field-group leaderboard-field" for="leaderboard-name">
+              <span class="field-label">Name for leaderboard</span>
+              <input
+                class="text-input"
+                id="leaderboard-name"
+                name="leaderboardName"
+                type="text"
+                maxlength="32"
+                placeholder="Type your name"
+                autocomplete="name"
+                required
+              />
+            </label>
+            <button class="button button-primary" id="play-again-button" type="submit">
+              Save and play again
+            </button>
+          </form>
+
+          <p
+            class="status-message game-over-status"
+            id="leaderboard-status"
+            data-tone="default"
+          >
+            Enter your name to save this run before playing again.
+          </p>
         </div>
 
         <div class="game-over-actions">
-          <a class="button button-primary" href="/play/">Play again</a>
           <a class="button button-secondary" href="/upload/">Upload your photo</a>
         </div>
 
@@ -52,7 +86,7 @@
             target="_blank"
             rel="noreferrer"
           >
-            Star on GitHub
+            Star Github
           </a>
           <a class="ghost-button" href="/">Back home</a>
         </div>

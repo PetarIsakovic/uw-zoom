@@ -1,6 +1,5 @@
 import { requestJson } from "/scripts/shared.js";
 
-const LEADERBOARD_STORAGE_KEY = "uwzoom-leaderboard";
 const leaderboardList = document.querySelector("#landing-leaderboard-list");
 const leaderboardEmpty = document.querySelector("#landing-leaderboard-empty");
 const uploadCountList = document.querySelector("#upload-count-list");
@@ -9,12 +8,20 @@ const uploadCountEmpty = document.querySelector("#upload-count-empty");
 renderLandingLeaderboard();
 renderUploadCounts();
 
-function renderLandingLeaderboard() {
+async function renderLandingLeaderboard() {
   if (!leaderboardList || !leaderboardEmpty) {
     return;
   }
 
-  const entries = loadLeaderboardEntries().slice(0, 5);
+  let entries = [];
+
+  try {
+    const payload = await requestJson("/api/leaderboard");
+    entries = Array.isArray(payload.entries) ? payload.entries.slice(0, 5) : [];
+  } catch {
+    entries = [];
+  }
+
   leaderboardList.replaceChildren();
 
   if (!entries.length) {
@@ -29,15 +36,38 @@ function renderLandingLeaderboard() {
     const item = document.createElement("li");
     item.className = "landing-leaderboard-entry";
 
+    const player = document.createElement("div");
+    player.className = "landing-leaderboard-player";
+
     const rank = document.createElement("span");
     rank.className = "landing-leaderboard-rank";
     rank.textContent = `#${index + 1}`;
+
+    const name = document.createElement("span");
+    name.className = "landing-leaderboard-name";
+    name.textContent = normalizeLeaderboardName(entry.name);
+
+    const metrics = document.createElement("div");
+    metrics.className = "landing-leaderboard-metrics";
 
     const score = document.createElement("strong");
     score.className = "landing-leaderboard-score";
     score.textContent = `${normalizeScore(entry.score)} in a row`;
 
-    item.append(rank, score);
+    const duration = document.createElement("span");
+    duration.className = "landing-leaderboard-time";
+
+    const formattedDuration = formatDuration(entry.durationMs);
+
+    if (formattedDuration) {
+      duration.textContent = `in ${formattedDuration}`;
+      metrics.append(score, duration);
+    } else {
+      metrics.append(score);
+    }
+
+    player.append(rank, name);
+    item.append(player, metrics);
     fragment.append(item);
   });
 
@@ -46,26 +76,42 @@ function renderLandingLeaderboard() {
   leaderboardEmpty.hidden = true;
 }
 
-function loadLeaderboardEntries() {
-  try {
-    const rawValue = window.localStorage.getItem(LEADERBOARD_STORAGE_KEY);
-    const parsed = JSON.parse(rawValue || "[]");
-
-    if (!Array.isArray(parsed)) {
-      return [];
-    }
-
-    return parsed
-      .filter((entry) => entry && Number.isFinite(Number(entry.score)))
-      .sort((left, right) => Number(right.score || 0) - Number(left.score || 0));
-  } catch {
-    return [];
-  }
-}
-
 function normalizeScore(value) {
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+}
+
+function normalizeLeaderboardName(value) {
+  const normalized = String(value || "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .slice(0, 32);
+
+  return normalized || "Anonymous";
+}
+
+function normalizeDurationMs(value) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : Number.POSITIVE_INFINITY;
+}
+
+function formatDuration(value) {
+  const durationMs = normalizeDurationMs(value);
+
+  if (!Number.isFinite(durationMs)) {
+    return "";
+  }
+
+  const totalSeconds = Math.floor(durationMs / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  if (hours > 0) {
+    return `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+  }
+
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
 
 async function renderUploadCounts() {

@@ -13,10 +13,6 @@ const form = document.querySelector("#guess-form");
 const input = document.querySelector("#guess-input");
 const ghostTyped = document.querySelector("#ghost-typed");
 const ghostSuffix = document.querySelector("#ghost-suffix");
-const HIGH_SCORE_STORAGE_KEY = "uwzoom-high-score";
-const LEADERBOARD_STORAGE_KEY = "uwzoom-leaderboard";
-const LAST_RESULT_STORAGE_KEY = "uwzoom-last-result";
-const LEADERBOARD_MAX_ENTRIES = 10;
 const GAME_OVER_DELAY_MS = 950;
 let wordBank = [];
 let wordBankIndex = createWordBankIndex([]);
@@ -25,10 +21,11 @@ const state = {
   images: [],
   current: null,
   runQueue: [],
+  runStartedAt: 0,
   wrongGuesses: 0,
   roundLocked: true,
   streak: 0,
-  highScore: loadHighScore(),
+  highScore: 0,
   inlineSuggestion: "",
 };
 
@@ -82,9 +79,10 @@ input.addEventListener("keydown", (event) => {
 
 async function init() {
   try {
-    const [imagesResult, wordBankResult] = await Promise.allSettled([
+    const [imagesResult, wordBankResult, leaderboardResult] = await Promise.allSettled([
       requestJson("/api/approved-images"),
       requestJson("/api/word-bank"),
+      requestJson("/api/leaderboard"),
     ]);
 
     const fallbackImages = buildDemoImages(window.location.origin);
@@ -96,6 +94,10 @@ async function init() {
       wordBankResult.status === "fulfilled" && Array.isArray(wordBankResult.value.words)
         ? wordBankResult.value.words
         : WORD_BANK;
+    state.highScore =
+      leaderboardResult.status === "fulfilled"
+        ? normalizeScore(leaderboardResult.value.highScore)
+        : 0;
     wordBankIndex = createWordBankIndex(wordBank);
 
     if (!state.images.length) {
@@ -145,7 +147,6 @@ form.addEventListener("submit", (event) => {
 
     if (!state.runQueue.length) {
       state.highScore = Math.max(state.highScore, state.streak);
-      saveHighScore(state.highScore);
       setStatus(
         feedback,
         `Correct. It was ${state.current.answer}. We ran out of images and you won.`,
@@ -179,7 +180,6 @@ form.addEventListener("submit", (event) => {
     state.roundLocked = true;
     const score = state.streak;
     state.highScore = Math.max(state.highScore, score);
-    saveHighScore(state.highScore);
     state.streak = 0;
     revealImage(true);
     setStatus(
@@ -205,6 +205,7 @@ form.addEventListener("submit", (event) => {
 
 function startNewGame() {
   state.runQueue = shuffleArray(state.images);
+  state.runStartedAt = Date.now();
   state.streak = 0;
   updateStreakMeter();
   loadNextRound();
@@ -364,45 +365,27 @@ function hasInlineSuggestion() {
 }
 
 function goToGameOver(payload) {
-  storeLeaderboardEntry(payload);
-  const serialized = JSON.stringify(payload);
+  const completedPayload = {
+    ...payload,
+    durationMs: Math.max(0, Date.now() - state.runStartedAt),
+  };
 
-  try {
-    window.sessionStorage.setItem(LAST_RESULT_STORAGE_KEY, serialized);
-    window.setTimeout(() => {
-      window.location.assign("/game-over/");
-    }, GAME_OVER_DELAY_MS);
-    return;
-  } catch {
-    const params = new URLSearchParams({
-      result: payload.result,
-      score: String(payload.score),
-      highScore: String(payload.highScore),
-      answer: payload.answer || "",
-    });
+  const params = new URLSearchParams({
+    result: completedPayload.result,
+    score: String(completedPayload.score),
+    highScore: String(completedPayload.highScore),
+    answer: completedPayload.answer || "",
+    durationMs: String(completedPayload.durationMs),
+  });
 
-    window.setTimeout(() => {
-      window.location.assign(`/game-over/?${params.toString()}`);
-    }, GAME_OVER_DELAY_MS);
-  }
+  window.setTimeout(() => {
+    window.location.assign(`/game-over/?${params.toString()}`);
+  }, GAME_OVER_DELAY_MS);
 }
 
-function loadHighScore() {
-  try {
-    const value = window.localStorage.getItem(HIGH_SCORE_STORAGE_KEY);
-    const parsed = Number(value);
-    return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
-  } catch {
-    return 0;
-  }
-}
-
-function saveHighScore(value) {
-  try {
-    window.localStorage.setItem(HIGH_SCORE_STORAGE_KEY, String(value));
-  } catch {
-    // Ignore storage failures and continue without persistence.
-  }
+function normalizeScore(value) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
 }
 
 function shuffleArray(values) {
@@ -414,58 +397,4 @@ function shuffleArray(values) {
   }
 
   return copy;
-}
-
-function storeLeaderboardEntry(payload) {
-  const score = normalizeScore(payload.score);
-  const result = payload.result === "win" ? "win" : "loss";
-
-  if (!score && result !== "win") {
-    return;
-  }
-
-  const entries = loadLeaderboardEntries();
-  entries.push({
-    score,
-    result,
-    playedAt: Date.now(),
-  });
-
-  entries.sort((left, right) => {
-    if (right.score !== left.score) {
-      return right.score - left.score;
-    }
-
-    return Number(right.playedAt || 0) - Number(left.playedAt || 0);
-  });
-
-  saveLeaderboardEntries(entries.slice(0, LEADERBOARD_MAX_ENTRIES));
-}
-
-function loadLeaderboardEntries() {
-  try {
-    const rawValue = window.localStorage.getItem(LEADERBOARD_STORAGE_KEY);
-    const parsed = JSON.parse(rawValue || "[]");
-
-    if (!Array.isArray(parsed)) {
-      return [];
-    }
-
-    return parsed.filter((entry) => entry && Number.isFinite(Number(entry.score)));
-  } catch {
-    return [];
-  }
-}
-
-function saveLeaderboardEntries(entries) {
-  try {
-    window.localStorage.setItem(LEADERBOARD_STORAGE_KEY, JSON.stringify(entries));
-  } catch {
-    // Ignore storage failures and continue without persistence.
-  }
-}
-
-function normalizeScore(value) {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
 }

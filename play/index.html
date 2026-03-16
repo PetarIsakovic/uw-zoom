@@ -13,46 +13,44 @@
     <link rel="stylesheet" href="/styles/play.css" />
   </head>
   <body class="play-page">
-    <header class="site-header">
-      <a class="brand brand-small" href="/">UW Zoom</a>
-    </header>
-
-    <main class="play-layout">
-      <section class="panel play-panel">
-        <div class="image-stage">
-          <div class="image-frame">
-            <img id="game-image" alt="Current round" />
-          </div>
-        </div>
-
-        <form class="guess-form" id="guess-form" autocomplete="off">
-          <div class="guess-meta">
-            <label class="field-label" for="guess-input">Your guess</label>
-            <p class="status-message" id="feedback" data-tone="default"></p>
-          </div>
-          <div class="guess-row">
-            <div class="autocomplete-shell">
-              <div class="autocomplete-ghost" aria-hidden="true">
-                <span class="autocomplete-typed" id="ghost-typed"></span><span
-                  class="autocomplete-suffix"
-                  id="ghost-suffix"
-                ></span>
-              </div>
-              <input
-                class="text-input autocomplete-input"
-                id="guess-input"
-                name="guess"
-                type="text"
-                placeholder="Coffee mug, backpack, camera..."
-                maxlength="80"
-                required
-              />
+    <div class="play-shell">
+      <main class="play-layout">
+        <section class="panel play-panel">
+          <div class="image-stage">
+            <div class="image-frame">
+              <img id="game-image" alt="Current round" />
             </div>
-            <button class="button button-primary" type="submit">Guess</button>
           </div>
-        </form>
-      </section>
-    </main>
+
+          <form class="guess-form" id="guess-form" autocomplete="off">
+            <div class="guess-meta">
+              <label class="field-label" for="guess-input">Your guess</label>
+              <p class="status-message" id="feedback" data-tone="default"></p>
+            </div>
+            <div class="guess-row">
+              <div class="autocomplete-shell">
+                <div class="autocomplete-ghost" aria-hidden="true">
+                  <span class="autocomplete-typed" id="ghost-typed"></span><span
+                    class="autocomplete-suffix"
+                    id="ghost-suffix"
+                  ></span>
+                </div>
+                <input
+                  class="text-input autocomplete-input"
+                  id="guess-input"
+                  name="guess"
+                  type="text"
+                  placeholder="WatCard, Dana Porter, goose..."
+                  maxlength="80"
+                  required
+                />
+              </div>
+              <button class="button button-primary" type="submit">Guess</button>
+            </div>
+          </form>
+        </section>
+      </main>
+    </div>
 
     <script type="module" src="/scripts/play.js"></script>
   </body>

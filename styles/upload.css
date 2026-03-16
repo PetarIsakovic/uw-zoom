@@ -1,7 +1,25 @@
+.upload-page {
+  background: #fcfbf8;
+}
+
+.upload-page::before {
+  background:
+    radial-gradient(circle at top left, rgba(242, 180, 0, 0.05), transparent 24rem),
+    radial-gradient(circle at bottom right, rgba(17, 17, 17, 0.018), transparent 24rem),
+    url("/assets/contours.svg") center center / cover no-repeat;
+}
+
+.upload-page::after {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.9));
+}
+
 .upload-layout {
-  width: min(760px, 100%);
+  width: min(1160px, 100%);
   margin: 0 auto;
-  padding: 1rem clamp(1.2rem, 3vw, 2.25rem) 2rem;
+  padding: 0 clamp(1.2rem, 3vw, 2.25rem) 1.6rem;
+  min-height: calc(100dvh - 5.5rem);
+  display: grid;
+  align-items: stretch;
 }
 
 .review-layout {
@@ -15,14 +33,28 @@
   padding: clamp(1.35rem, 2vw, 1.8rem);
 }
 
+.upload-panel {
+  min-height: calc(100dvh - 7.2rem);
+  padding: clamp(1rem, 2vw, 1.4rem);
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  align-content: stretch;
+  background: rgba(255, 253, 249, 0.9);
+  border: 1px solid rgba(17, 17, 17, 0.08);
+  box-shadow: 0 22px 60px rgba(17, 17, 17, 0.05);
+}
+
 .review-panel-standalone {
   min-height: 60vh;
 }
 
 .upload-form {
   display: grid;
-  gap: 1rem;
-  margin-top: 1.35rem;
+  grid-template-rows: minmax(0, 1fr) auto auto;
+  gap: 0.85rem;
+  align-content: stretch;
+  min-height: 0;
+  height: 100%;
 }
 
 .upload-input-hidden {
@@ -39,43 +71,83 @@
 .drop-zone {
   display: grid;
   place-items: center;
-  gap: 0.45rem;
-  min-height: 280px;
-  padding: 2rem;
-  border: 1.5px dashed rgba(17, 17, 17, 0.16);
-  border-radius: var(--radius-xl);
+  min-height: 0;
+  height: 100%;
+  padding: clamp(1.25rem, 3.4vw, 2.5rem);
+  border: 1.5px dashed rgba(17, 17, 17, 0.12);
+  border-radius: calc(var(--radius-xl) - 4px);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.8), rgba(255, 248, 228, 0.72)),
-    rgba(255, 255, 255, 0.66);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.58), rgba(252, 250, 246, 0.72)),
+    rgba(255, 255, 255, 0.56);
   text-align: center;
   cursor: pointer;
   transition:
     border-color 180ms ease,
     background-color 180ms ease,
-    transform 180ms ease,
     box-shadow 180ms ease;
+}
+
+.upload-panel > .status-message:empty {
+  display: none;
 }
 
 .drop-zone:hover,
 .drop-zone:focus-visible,
 .drop-zone[data-dragging="true"] {
-  border-color: rgba(242, 180, 0, 0.9);
+  border-color: rgba(17, 17, 17, 0.22);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(255, 239, 191, 0.84)),
-    rgba(255, 255, 255, 0.82);
-  transform: translateY(-1px);
-  box-shadow: 0 18px 40px rgba(242, 180, 0, 0.12);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(252, 250, 246, 0.84)),
+    rgba(255, 255, 255, 0.68);
+  box-shadow: inset 0 0 0 1px rgba(17, 17, 17, 0.03);
   outline: none;
 }
 
-.drop-zone-kicker {
-  font-size: clamp(1.3rem, 3vw, 1.8rem);
-  font-weight: 700;
-  letter-spacing: -0.04em;
+.drop-zone-prompt {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.82rem 1rem;
+  border: 1px solid rgba(17, 17, 17, 0.08);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.68);
+  box-shadow: 0 10px 24px rgba(17, 17, 17, 0.025);
+  color: rgba(17, 17, 17, 0.52);
+  backdrop-filter: blur(6px);
 }
 
-.drop-zone-copy {
-  color: var(--muted);
+.drop-zone-icon {
+  width: clamp(1.15rem, 1.8vw, 1.4rem);
+  height: clamp(1.15rem, 1.8vw, 1.4rem);
+  display: inline-flex;
+  flex: none;
+}
+
+.drop-zone-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.drop-zone-icon path {
+  fill: none;
+  stroke: rgba(17, 17, 17, 0.42);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.65;
+}
+
+.drop-zone-prompt-text {
+  font-size: clamp(0.98rem, 1.45vw, 1.14rem);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.drop-zone:hover .drop-zone-prompt,
+.drop-zone:focus-visible .drop-zone-prompt,
+.drop-zone[data-dragging="true"] .drop-zone-prompt {
+  border-color: rgba(17, 17, 17, 0.12);
+  background: rgba(255, 255, 255, 0.8);
+  color: rgba(17, 17, 17, 0.62);
 }
 
 .file-preview {
@@ -158,5 +230,22 @@
 @media (max-width: 680px) {
   .admin-lockup {
     grid-template-columns: 1fr;
+  }
+
+  .upload-layout {
+    min-height: auto;
+    padding-top: 0.25rem;
+  }
+
+  .upload-panel {
+    min-height: auto;
+  }
+
+  .drop-zone {
+    min-height: 22rem;
+  }
+
+  .drop-zone-prompt {
+    padding: 0.75rem 0.92rem;
   }
 }

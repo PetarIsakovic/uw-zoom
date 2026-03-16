@@ -12,7 +12,7 @@
     <link rel="stylesheet" href="/styles/global.css" />
     <link rel="stylesheet" href="/styles/upload.css" />
   </head>
-  <body>
+  <body class="upload-page">
     <header class="site-header">
       <a class="brand brand-small" href="/">UW Zoom</a>
       <nav class="header-actions" aria-label="Primary">
@@ -22,9 +22,6 @@
 
     <main class="upload-layout">
       <section class="panel upload-panel">
-        <p class="eyebrow">Submit photos</p>
-        <h1 class="panel-title">Upload a new image</h1>
-
         <form class="upload-form" id="upload-form">
           <input
             class="file-input upload-input-hidden"
@@ -36,8 +33,16 @@
           />
 
           <label class="drop-zone" id="drop-zone" for="image-file" tabindex="0">
-            <span class="drop-zone-kicker">Drop an image here</span>
-            <span class="drop-zone-copy">or click to upload</span>
+            <span class="drop-zone-prompt">
+              <span class="drop-zone-icon" aria-hidden="true">
+                <svg viewBox="0 0 32 32" role="presentation" focusable="false">
+                  <path d="M16 20V8" />
+                  <path d="M11.5 12.5 16 8l4.5 4.5" />
+                  <path d="M9 18.5V22a3 3 0 0 0 3 3h8a3 3 0 0 0 3-3v-3.5" />
+                </svg>
+              </span>
+              <span class="drop-zone-prompt-text" id="drop-zone-prompt-text">Upload an image here</span>
+            </span>
           </label>
 
           <figure class="file-preview" id="file-preview" hidden>
