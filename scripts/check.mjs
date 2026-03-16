@@ -21,6 +21,7 @@ const files = [
   "netlify/functions/create-upload-url.js",
   "netlify/functions/submit-image.js",
   "netlify/functions/admin-leaderboard.js",
+  "netlify/functions/admin-approved-images.js",
   "netlify/functions/admin-submissions.js",
   "netlify/functions/moderate-submission.js",
 ];

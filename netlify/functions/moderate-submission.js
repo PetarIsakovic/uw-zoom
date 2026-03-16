@@ -40,9 +40,21 @@ export const handler = withErrorHandling(async (event) => {
   }
 
   if (action === "approve") {
+    const answer = normalizeAnswer(body.answer || submission.answer);
+    const acceptedAnswers = normalizeAcceptedAnswers(
+      body.acceptedAnswers ?? submission.acceptedAnswers,
+      answer,
+    );
+
+    if (!answer) {
+      throw new HttpError(400, "The main answer is required before approval.");
+    }
+
     const approvedImageKey = toApprovedImageKey(id, submission.imageKey);
     const approvedRecord = {
       ...submission,
+      answer,
+      acceptedAnswers,
       status: "approved",
       imageKey: approvedImageKey,
       approvedAt: new Date().toISOString(),
@@ -61,3 +73,48 @@ export const handler = withErrorHandling(async (event) => {
     id,
   });
 });
+
+function normalizeAnswer(value) {
+  return String(value || "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .slice(0, 80);
+}
+
+function normalizeAcceptedAnswers(value, mainAnswer = "") {
+  const parsed = Array.isArray(value)
+    ? value
+    : String(value || "")
+        .split(/[\n,]/)
+        .map((item) => item.trim());
+
+  const seen = new Set();
+  const normalizedMain = normalizeComparable(mainAnswer);
+  const unique = [];
+
+  for (const entry of parsed) {
+    const trimmed = String(entry || "")
+      .trim()
+      .replace(/\s+/g, " ")
+      .slice(0, 80);
+    const comparable = normalizeComparable(trimmed);
+
+    if (!trimmed || !comparable || comparable === normalizedMain || seen.has(comparable)) {
+      continue;
+    }
+
+    seen.add(comparable);
+    unique.push(trimmed);
+  }
+
+  return unique;
+}
+
+function normalizeComparable(value) {
+  return String(value || "")
+    .normalize("NFKD")
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}

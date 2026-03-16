@@ -229,6 +229,11 @@
   border: 1px solid rgba(17, 17, 17, 0.08);
 }
 
+.review-card-editor {
+  grid-template-columns: minmax(0, 16rem) minmax(0, 1fr);
+  align-items: start;
+}
+
 .review-card-compact {
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
@@ -256,6 +261,10 @@
   color: var(--muted);
 }
 
+.review-copy-editor {
+  gap: 0.8rem;
+}
+
 .review-copy p {
   margin: 0;
   line-height: 1.6;
@@ -267,11 +276,17 @@
   gap: 0.75rem;
 }
 
+.review-card-editor .review-actions {
+  grid-column: 1 / -1;
+  justify-content: flex-start;
+}
+
 @media (max-width: 680px) {
   .admin-lockup {
     grid-template-columns: 1fr;
   }
 
+  .review-card-editor,
   .review-card-compact {
     grid-template-columns: 1fr;
   }

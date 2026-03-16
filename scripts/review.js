@@ -5,6 +5,7 @@ const loadPendingButton = document.querySelector("#load-pending");
 const reviewStatus = document.querySelector("#review-status");
 const pendingList = document.querySelector("#pending-list");
 const leaderboardAdminList = document.querySelector("#leaderboard-admin-list");
+const approvedImageList = document.querySelector("#approved-image-list");
 
 let adminKey = "";
 
@@ -32,6 +33,8 @@ pendingList?.addEventListener("click", async (event) => {
   }
 
   const { id, action } = button.dataset;
+  const card = button.closest(".review-card");
+  const fields = readEditableFields(card);
 
   try {
     button.disabled = true;
@@ -47,12 +50,60 @@ pendingList?.addEventListener("click", async (event) => {
       body: {
         id,
         action,
+        ...(action === "approve" ? fields : {}),
       },
     });
 
     setStatus(
       reviewStatus,
       action === "approve" ? "Submission approved." : "Submission rejected.",
+      "success",
+    );
+    await loadAdminData();
+  } catch (error) {
+    setStatus(reviewStatus, error.message, "error");
+    button.disabled = false;
+  }
+});
+
+approvedImageList?.addEventListener("click", async (event) => {
+  const button = event.target.closest("[data-approved-action]");
+
+  if (!button) {
+    return;
+  }
+
+  if (!adminKey) {
+    setStatus(reviewStatus, "Unlock review before changing approved images.", "warning");
+    return;
+  }
+
+  const action = button.dataset.approvedAction || "";
+  const id = button.dataset.id || "";
+  const card = button.closest(".review-card");
+  const fields = readEditableFields(card);
+
+  try {
+    button.disabled = true;
+    setStatus(
+      reviewStatus,
+      action === "delete" ? "Deleting approved image..." : "Saving approved image...",
+      "default",
+    );
+
+    await requestJson("/api/admin-approved-images", {
+      method: "POST",
+      headers: adminHeaders(),
+      body: {
+        id,
+        action,
+        ...(action === "update" ? fields : {}),
+      },
+    });
+
+    setStatus(
+      reviewStatus,
+      action === "delete" ? "Approved image deleted." : "Approved image updated.",
       "success",
     );
     await loadAdminData();
@@ -105,22 +156,30 @@ async function loadAdminData() {
     if (leaderboardAdminList) {
       leaderboardAdminList.innerHTML = "";
     }
+    if (approvedImageList) {
+      approvedImageList.innerHTML = "";
+    }
 
-    const [pendingPayload, leaderboardPayload] = await Promise.all([
+    const [pendingPayload, leaderboardPayload, approvedPayload] = await Promise.all([
       requestJson("/api/admin-submissions", {
         headers: adminHeaders(),
       }),
       requestJson("/api/admin-leaderboard", {
         headers: adminHeaders(),
       }),
+      requestJson("/api/admin-approved-images", {
+        headers: adminHeaders(),
+      }),
     ]);
 
     renderPending(pendingPayload.submissions || []);
     renderLeaderboardEntries(leaderboardPayload.entries || []);
+    renderApprovedImages(approvedPayload.images || []);
     setStatus(reviewStatus, "Review unlocked.", "success");
   } catch (error) {
     renderPending([]);
     renderLeaderboardEntries([]);
+    renderApprovedImages([]);
     setStatus(reviewStatus, error.message, "error");
   }
 }
@@ -139,15 +198,21 @@ function renderPending(submissions) {
 
   for (const submission of submissions) {
     const card = document.createElement("article");
-    card.className = "review-card";
+    card.className = "review-card review-card-editor";
 
     card.innerHTML = `
       <div class="review-thumb">
         <img src="${escapeHtml(submission.previewUrl)}" alt="${escapeHtml(submission.answer)}" />
       </div>
-      <div class="review-copy">
-        <h3>${escapeHtml(submission.answer)}</h3>
-        <p><strong>Accepted answers:</strong> ${escapeHtml(formatAliases(submission.acceptedAnswers))}</p>
+      <div class="review-copy review-copy-editor">
+        <div class="field-group">
+          <span class="field-label">Main answer</span>
+          <input class="text-input review-answer-input" type="text" value="${escapeHtml(submission.answer)}" />
+        </div>
+        <div class="field-group">
+          <span class="field-label">Other accepted answers</span>
+          <textarea class="text-area review-aliases-input" rows="3" placeholder="Dana Porter, DP Library, DP">${escapeHtml(formatAliasesForInput(submission.acceptedAnswers))}</textarea>
+        </div>
         <p><strong>Uploader:</strong> ${escapeHtml(submission.uploaderName || "Anonymous")}</p>
         <p><strong>Email:</strong> ${escapeHtml(submission.uploaderEmail || "Not provided")}</p>
         <p><strong>Submitted:</strong> ${escapeHtml(formatDate(submission.submittedAt))}</p>
@@ -196,6 +261,49 @@ function renderLeaderboardEntries(entries) {
   }
 }
 
+function renderApprovedImages(images) {
+  if (!approvedImageList) {
+    return;
+  }
+
+  approvedImageList.innerHTML = "";
+
+  if (!images.length) {
+    renderEmptyState(approvedImageList, "No approved images yet.");
+    return;
+  }
+
+  for (const image of images) {
+    const card = document.createElement("article");
+    card.className = "review-card review-card-editor";
+
+    card.innerHTML = `
+      <div class="review-thumb">
+        <img src="${escapeHtml(image.previewUrl)}" alt="${escapeHtml(image.answer)}" />
+      </div>
+      <div class="review-copy review-copy-editor">
+        <div class="field-group">
+          <span class="field-label">Main answer</span>
+          <input class="text-input review-answer-input" type="text" value="${escapeHtml(image.answer)}" />
+        </div>
+        <div class="field-group">
+          <span class="field-label">Other accepted answers</span>
+          <textarea class="text-area review-aliases-input" rows="3" placeholder="Dana Porter, DP Library, DP">${escapeHtml(formatAliasesForInput(image.acceptedAnswers))}</textarea>
+        </div>
+        <p><strong>Uploader:</strong> ${escapeHtml(image.uploaderName || "Anonymous")}</p>
+        <p><strong>Approved:</strong> ${escapeHtml(formatDate(image.approvedAt || image.submittedAt))}</p>
+        <p><strong>Current aliases:</strong> ${escapeHtml(formatAliases(image.acceptedAnswers))}</p>
+      </div>
+      <div class="review-actions">
+        <button class="button button-primary" data-approved-action="update" data-id="${escapeHtml(image.id)}" type="button">Save changes</button>
+        <button class="button button-secondary" data-approved-action="delete" data-id="${escapeHtml(image.id)}" type="button">Delete image</button>
+      </div>
+    `;
+
+    approvedImageList.append(card);
+  }
+}
+
 function adminHeaders() {
   return {
     "x-admin-key": adminKey,
@@ -211,6 +319,10 @@ function renderEmptyState(container, message) {
 
 function formatAliases(values) {
   return values?.length ? values.join(", ") : "Only the main answer";
+}
+
+function formatAliasesForInput(values) {
+  return Array.isArray(values) ? values.join(", ") : "";
 }
 
 function formatDuration(value) {
@@ -240,4 +352,40 @@ function escapeHtml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
+}
+
+function readEditableFields(card) {
+  const answerInput = card?.querySelector(".review-answer-input");
+  const aliasesInput = card?.querySelector(".review-aliases-input");
+
+  return {
+    answer: String(answerInput?.value || "")
+      .trim()
+      .replace(/\s+/g, " "),
+    acceptedAnswers: parseAliasesInput(aliasesInput?.value || ""),
+  };
+}
+
+function parseAliasesInput(value) {
+  const seen = new Set();
+  const aliases = [];
+
+  for (const rawEntry of String(value || "").split(/[\n,]/)) {
+    const trimmed = rawEntry.trim().replace(/\s+/g, " ");
+    const comparable = trimmed
+      .normalize("NFKD")
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}\s]/gu, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    if (!trimmed || !comparable || seen.has(comparable)) {
+      continue;
+    }
+
+    seen.add(comparable);
+    aliases.push(trimmed);
+  }
+
+  return aliases;
 }
