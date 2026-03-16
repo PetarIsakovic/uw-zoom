@@ -23,14 +23,14 @@ const EXTENSIONS_BY_TYPE = {
 let cachedClient;
 
 export function storageConfigured() {
-  return Boolean(process.env.AWS_REGION && process.env.UWZ_S3_BUCKET);
+  return Boolean(resolveStorageRegion() && process.env.UWZ_S3_BUCKET);
 }
 
 export function getStorageConfig() {
   const maxUploadMb = Number(process.env.UWZ_MAX_UPLOAD_MB || FALLBACK_MAX_UPLOAD_MB);
 
   return {
-    region: process.env.AWS_REGION,
+    region: resolveStorageRegion(),
     bucket: process.env.UWZ_S3_BUCKET,
     maxUploadMb: Number.isFinite(maxUploadMb) && maxUploadMb > 0 ? maxUploadMb : FALLBACK_MAX_UPLOAD_MB,
   };
@@ -42,7 +42,7 @@ export function requireStorage() {
   if (!config.region || !config.bucket) {
     throw new HttpError(
       503,
-      "AWS storage is not configured. Add AWS_REGION, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, and UWZ_S3_BUCKET in Netlify.",
+      "AWS storage is not configured. Add UWZ_AWS_REGION, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, and UWZ_S3_BUCKET in Netlify.",
     );
   }
 
@@ -254,6 +254,10 @@ function resolveExtension(filename, fileType) {
 
 function buildCopySource(bucket, key) {
   return `${bucket}/${key.split("/").map(encodeURIComponent).join("/")}`;
+}
+
+function resolveStorageRegion() {
+  return process.env.UWZ_AWS_REGION || process.env.AWS_REGION || "";
 }
 
 async function streamToString(stream) {

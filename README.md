@@ -48,7 +48,7 @@ If AWS is not configured, the game still works with built-in demo images.
 
 Set these in the Netlify dashboard for the site:
 
-- `AWS_REGION`
+- `UWZ_AWS_REGION`
 - `AWS_ACCESS_KEY_ID`
 - `AWS_SECRET_ACCESS_KEY`
 - `UWZ_S3_BUCKET`
