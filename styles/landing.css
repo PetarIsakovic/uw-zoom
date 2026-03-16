@@ -94,12 +94,80 @@
   animation: landing-lens-inner 7.5s linear infinite;
 }
 
+.landing-grid {
+  width: min(1080px, 100%);
+  display: grid;
+  grid-template-columns: minmax(15rem, 18rem) minmax(0, 1fr);
+  align-items: center;
+  gap: clamp(1.25rem, 3vw, 2.75rem);
+  position: relative;
+  z-index: 1;
+}
+
+.landing-leaderboard {
+  padding: 1.15rem 1.2rem;
+  border: 1px solid rgba(17, 17, 17, 0.08);
+  border-radius: 28px;
+  background: rgba(255, 252, 246, 0.72);
+  box-shadow: 0 20px 55px rgba(17, 17, 17, 0.06);
+  backdrop-filter: blur(10px);
+  display: grid;
+  gap: 0.8rem;
+}
+
+.landing-leaderboard-label,
+.landing-leaderboard-empty {
+  margin: 0;
+}
+
+.landing-leaderboard-label {
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.landing-leaderboard-empty {
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.landing-leaderboard-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.landing-leaderboard-entry {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.9rem;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.56);
+  padding: 0.72rem 0.82rem;
+}
+
+.landing-leaderboard-rank {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.landing-leaderboard-score {
+  font-size: 0.98rem;
+  letter-spacing: -0.03em;
+}
+
 .hero-panel {
   width: min(760px, 100%);
   padding: clamp(2rem, 5vw, 4rem);
   text-align: center;
-  position: relative;
-  z-index: 1;
 }
 
 .wordmark {
@@ -216,6 +284,16 @@
 }
 
 @media (max-width: 600px) {
+  .landing-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .landing-leaderboard {
+    width: min(24rem, 100%);
+    justify-self: center;
+  }
+
   .hero-panel {
     padding-inline: 1.2rem;
   }

@@ -19,18 +19,29 @@
     </header>
 
     <main class="landing-main">
-      <section class="hero-panel">
-        <h1 class="wordmark" aria-label="UW Zoom">
-          <span class="wordmark-accent">UW</span>
-          <span class="wordmark-fill">Zoom</span>
-        </h1>
-        <div class="hero-actions">
-          <a class="button button-primary" href="/play/">Start Playing</a>
-        </div>
-      </section>
+      <div class="landing-grid">
+        <aside class="landing-leaderboard" aria-label="Top streaks">
+          <p class="landing-leaderboard-label">Top streaks</p>
+          <ol class="landing-leaderboard-list" id="landing-leaderboard-list"></ol>
+          <p class="landing-leaderboard-empty" id="landing-leaderboard-empty">
+            Finish a run to fill this in.
+          </p>
+        </aside>
+
+        <section class="hero-panel">
+          <h1 class="wordmark" aria-label="UW Zoom">
+            <span class="wordmark-accent">UW</span>
+            <span class="wordmark-fill">Zoom</span>
+          </h1>
+          <div class="hero-actions">
+            <a class="button button-primary" href="/play/">Start Playing</a>
+          </div>
+        </section>
+      </div>
     </main>
 
     <footer class="site-footer">
     </footer>
+    <script type="module" src="/scripts/landing.js"></script>
   </body>
 </html>

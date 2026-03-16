@@ -33,11 +33,14 @@
 }
 
 .play-layout {
-  width: min(920px, 100%);
+  width: min(1260px, 100%);
   margin: 0 auto;
   min-height: 100%;
   padding: 0 clamp(1rem, 2.6vw, 2rem) clamp(0.85rem, 2vw, 1.25rem);
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 1rem;
+  align-items: stretch;
 }
 
 .play-panel {
@@ -143,6 +146,154 @@
   text-align: right;
 }
 
+.leaderboard-shell {
+  width: clamp(18rem, 22vw, 20rem);
+  min-height: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 3.5rem minmax(0, 1fr);
+  overflow: hidden;
+  transition:
+    width 220ms ease,
+    transform 220ms ease;
+}
+
+.leaderboard-shell[data-open="false"] {
+  width: 3.5rem;
+}
+
+.leaderboard-toggle {
+  border: 0;
+  border-right: 1px solid rgba(17, 17, 17, 0.08);
+  background:
+    linear-gradient(180deg, rgba(242, 180, 0, 0.12), rgba(255, 255, 255, 0.36));
+  color: var(--ink);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.85rem;
+  min-height: 100%;
+  padding: 1rem 0.45rem;
+  cursor: pointer;
+}
+
+.leaderboard-toggle-label {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.leaderboard-toggle-icon {
+  font-size: 1.5rem;
+  line-height: 1;
+  transition: transform 220ms ease;
+}
+
+.leaderboard-shell[data-open="false"] .leaderboard-toggle-icon {
+  transform: rotate(180deg);
+}
+
+.leaderboard-panel {
+  min-width: 0;
+  padding: 1rem 1rem 1.1rem;
+  display: grid;
+  align-content: start;
+  gap: 0.95rem;
+  transition: opacity 180ms ease;
+}
+
+.leaderboard-shell[data-open="false"] .leaderboard-panel {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.leaderboard-header {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.leaderboard-title,
+.leaderboard-copy,
+.leaderboard-empty {
+  margin: 0;
+}
+
+.leaderboard-title {
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.leaderboard-copy,
+.leaderboard-empty {
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.leaderboard-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.6rem;
+}
+
+.leaderboard-entry {
+  display: grid;
+  gap: 0.2rem;
+  border: 1px solid rgba(17, 17, 17, 0.08);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.5);
+  padding: 0.75rem 0.8rem;
+}
+
+.leaderboard-entry-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+.leaderboard-rank {
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.leaderboard-score {
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+}
+
+.leaderboard-entry-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.leaderboard-result {
+  border-radius: 999px;
+  padding: 0.3rem 0.55rem;
+  background: rgba(17, 17, 17, 0.06);
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.leaderboard-result[data-result="win"] {
+  background: rgba(13, 125, 70, 0.12);
+  color: #0d7d46;
+}
+
 @media (max-width: 900px) {
   .play-page .site-header {
     padding-top: 0.8rem;
@@ -156,6 +307,10 @@
 
   .play-layout {
     padding-top: clamp(3.2rem, 8vw, 4.75rem);
+  }
+
+  .leaderboard-shell {
+    width: min(17rem, calc(100vw - 7rem));
   }
 }
 
@@ -182,12 +337,32 @@
   .play-layout {
     padding-top: 3.4rem;
     padding-bottom: 1rem;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.75rem;
   }
 
   .image-frame {
     min-height: 0;
     height: auto;
     aspect-ratio: 4 / 3;
+  }
+
+  .leaderboard-shell {
+    width: min(14rem, calc(100vw - 5rem));
+    grid-template-columns: 3.1rem minmax(0, 1fr);
+  }
+
+  .leaderboard-shell[data-open="false"] {
+    width: 3.1rem;
+  }
+
+  .leaderboard-toggle {
+    padding-left: 0.35rem;
+    padding-right: 0.35rem;
+  }
+
+  .leaderboard-toggle-label {
+    font-size: 0.66rem;
   }
 }
 
