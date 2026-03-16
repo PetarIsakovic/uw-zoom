@@ -1,4 +1,5 @@
 import { WORD_BANK, createWordBankIndex } from "../../shared/word-bank.js";
+import { requireNotBanned } from "./_lib/bans.js";
 import { handleOptions, ensureMethod, json, withErrorHandling } from "./_lib/http.js";
 import { listJson, storageConfigured } from "./_lib/storage.js";
 
@@ -10,6 +11,7 @@ export const handler = withErrorHandling(async (event) => {
   }
 
   ensureMethod(event, ["GET"]);
+  await requireNotBanned(event, "playing the game");
 
   const combined = [...WORD_BANK];
 

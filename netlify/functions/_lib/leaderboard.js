@@ -61,6 +61,7 @@ export function normalizeEntry(value) {
   return {
     id: normalizeEntryId(value),
     name: normalizeName(value?.name),
+    ip: normalizeIpAddress(value?.ip),
     score: normalizeScore(value?.score),
     durationMs: normalizeDurationMs(value?.durationMs, 0),
     result: value?.result === "win" ? "win" : "loss",
@@ -134,4 +135,13 @@ function normalizeEntryId(value) {
 function normalizeExplicitId(value) {
   const normalized = String(value || "").trim().toLowerCase();
   return /^[a-z0-9-]{8,64}$/.test(normalized) ? normalized : "";
+}
+
+function normalizeIpAddress(value) {
+  return String(value || "")
+    .split(",")[0]
+    .trim()
+    .replace(/^\[|\]$/g, "")
+    .replace(/^::ffff:/i, "")
+    .slice(0, 80) || "Unknown";
 }

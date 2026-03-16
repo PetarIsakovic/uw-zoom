@@ -85,6 +85,14 @@ async function init() {
       requestJson("/api/leaderboard"),
     ]);
 
+    const fatalError =
+      resolveFatalApiError(imagesResult, "banned from playing") ||
+      resolveFatalApiError(wordBankResult, "banned from playing");
+
+    if (fatalError) {
+      throw fatalError;
+    }
+
     const fallbackImages = buildDemoImages(window.location.origin);
     state.images =
       imagesResult.status === "fulfilled" && Array.isArray(imagesResult.value.images)
@@ -386,6 +394,20 @@ function goToGameOver(payload) {
 function normalizeScore(value) {
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+}
+
+function resolveFatalApiError(result, matchText) {
+  if (result.status !== "rejected") {
+    return null;
+  }
+
+  const message = String(result.reason?.message || "");
+
+  if (!message.toLowerCase().includes(matchText)) {
+    return null;
+  }
+
+  return new Error(message);
 }
 
 function shuffleArray(values) {

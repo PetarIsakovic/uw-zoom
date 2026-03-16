@@ -6,6 +6,7 @@ const reviewStatus = document.querySelector("#review-status");
 const pendingList = document.querySelector("#pending-list");
 const leaderboardAdminList = document.querySelector("#leaderboard-admin-list");
 const approvedImageList = document.querySelector("#approved-image-list");
+const bannedIpList = document.querySelector("#banned-ip-list");
 
 let adminKey = "";
 
@@ -21,6 +22,13 @@ loadPendingButton?.addEventListener("click", async () => {
 });
 
 pendingList?.addEventListener("click", async (event) => {
+  const banButton = event.target.closest("[data-ban-ip]");
+
+  if (banButton) {
+    await banIpFromButton(banButton);
+    return;
+  }
+
   const button = event.target.closest("[data-action]");
 
   if (!button) {
@@ -66,7 +74,55 @@ pendingList?.addEventListener("click", async (event) => {
   }
 });
 
+leaderboardAdminList?.addEventListener("click", async (event) => {
+  const banButton = event.target.closest("[data-ban-ip]");
+
+  if (banButton) {
+    await banIpFromButton(banButton);
+    return;
+  }
+
+  const button = event.target.closest("[data-entry-id]");
+
+  if (!button) {
+    return;
+  }
+
+  if (!adminKey) {
+    setStatus(reviewStatus, "Unlock review before changing the leaderboard.", "warning");
+    return;
+  }
+
+  const entryId = button.dataset.entryId || "";
+
+  try {
+    button.disabled = true;
+    setStatus(reviewStatus, "Deleting leaderboard entry...", "default");
+
+    await requestJson("/api/admin-leaderboard", {
+      method: "POST",
+      headers: adminHeaders(),
+      body: {
+        id: entryId,
+      },
+    });
+
+    setStatus(reviewStatus, "Leaderboard entry deleted.", "success");
+    await loadAdminData();
+  } catch (error) {
+    setStatus(reviewStatus, error.message, "error");
+    button.disabled = false;
+  }
+});
+
 approvedImageList?.addEventListener("click", async (event) => {
+  const banButton = event.target.closest("[data-ban-ip]");
+
+  if (banButton) {
+    await banIpFromButton(banButton);
+    return;
+  }
+
   const button = event.target.closest("[data-approved-action]");
 
   if (!button) {
@@ -113,33 +169,32 @@ approvedImageList?.addEventListener("click", async (event) => {
   }
 });
 
-leaderboardAdminList?.addEventListener("click", async (event) => {
-  const button = event.target.closest("[data-entry-id]");
+bannedIpList?.addEventListener("click", async (event) => {
+  const button = event.target.closest("[data-unban-ip]");
 
   if (!button) {
     return;
   }
 
   if (!adminKey) {
-    setStatus(reviewStatus, "Unlock review before changing the leaderboard.", "warning");
+    setStatus(reviewStatus, "Unlock review before changing bans.", "warning");
     return;
   }
 
-  const entryId = button.dataset.entryId || "";
-
   try {
     button.disabled = true;
-    setStatus(reviewStatus, "Deleting leaderboard entry...", "default");
+    setStatus(reviewStatus, "Removing IP ban...", "default");
 
-    await requestJson("/api/admin-leaderboard", {
+    await requestJson("/api/admin-bans", {
       method: "POST",
       headers: adminHeaders(),
       body: {
-        id: entryId,
+        action: "unban",
+        ip: button.dataset.unbanIp,
       },
     });
 
-    setStatus(reviewStatus, "Leaderboard entry deleted.", "success");
+    setStatus(reviewStatus, "IP address unbanned.", "success");
     await loadAdminData();
   } catch (error) {
     setStatus(reviewStatus, error.message, "error");
@@ -150,17 +205,12 @@ leaderboardAdminList?.addEventListener("click", async (event) => {
 async function loadAdminData() {
   try {
     setStatus(reviewStatus, "Loading admin data...", "default");
-    if (pendingList) {
-      pendingList.innerHTML = "";
-    }
-    if (leaderboardAdminList) {
-      leaderboardAdminList.innerHTML = "";
-    }
-    if (approvedImageList) {
-      approvedImageList.innerHTML = "";
-    }
+    clearList(pendingList);
+    clearList(leaderboardAdminList);
+    clearList(approvedImageList);
+    clearList(bannedIpList);
 
-    const [pendingPayload, leaderboardPayload, approvedPayload] = await Promise.all([
+    const [pendingPayload, leaderboardPayload, approvedPayload, bansPayload] = await Promise.all([
       requestJson("/api/admin-submissions", {
         headers: adminHeaders(),
       }),
@@ -170,16 +220,21 @@ async function loadAdminData() {
       requestJson("/api/admin-approved-images", {
         headers: adminHeaders(),
       }),
+      requestJson("/api/admin-bans", {
+        headers: adminHeaders(),
+      }),
     ]);
 
     renderPending(pendingPayload.submissions || []);
     renderLeaderboardEntries(leaderboardPayload.entries || []);
     renderApprovedImages(approvedPayload.images || []);
+    renderBannedIps(bansPayload.bans || []);
     setStatus(reviewStatus, "Review unlocked.", "success");
   } catch (error) {
     renderPending([]);
     renderLeaderboardEntries([]);
     renderApprovedImages([]);
+    renderBannedIps([]);
     setStatus(reviewStatus, error.message, "error");
   }
 }
@@ -214,6 +269,7 @@ function renderPending(submissions) {
           <textarea class="text-area review-aliases-input" rows="3" placeholder="Dana Porter, DP Library, DP">${escapeHtml(formatAliasesForInput(submission.acceptedAnswers))}</textarea>
         </div>
         <p><strong>Uploader:</strong> ${escapeHtml(submission.uploaderName || "Anonymous")}</p>
+        <p><strong>Uploader IP:</strong> ${escapeHtml(submission.submitterIp || "Unknown")}</p>
         <p><strong>Email:</strong> ${escapeHtml(submission.uploaderEmail || "Not provided")}</p>
         <p><strong>Submitted:</strong> ${escapeHtml(formatDate(submission.submittedAt))}</p>
         <p><strong>Notes:</strong> ${escapeHtml(submission.notes || "None")}</p>
@@ -221,6 +277,7 @@ function renderPending(submissions) {
       <div class="review-actions">
         <button class="button button-primary" data-action="approve" data-id="${escapeHtml(submission.id)}" type="button">Approve</button>
         <button class="button button-secondary" data-action="reject" data-id="${escapeHtml(submission.id)}" type="button">Reject</button>
+        ${buildBanButtonMarkup(submission.submitterIp, submission.uploaderName || submission.answer, "pending upload")}
       </div>
     `;
 
@@ -251,9 +308,11 @@ function renderLeaderboardEntries(entries) {
         <p><strong>Time:</strong> ${escapeHtml(formatDuration(entry.durationMs))}</p>
         <p><strong>Played:</strong> ${escapeHtml(formatDate(entry.playedAt))}</p>
         <p><strong>Result:</strong> ${escapeHtml(entry.result === "win" ? "Win" : "Loss")}</p>
+        <p><strong>IP:</strong> ${escapeHtml(entry.ip || "Unknown")}</p>
       </div>
       <div class="review-actions">
         <button class="button button-secondary" data-entry-id="${escapeHtml(entry.id)}" type="button">Delete entry</button>
+        ${buildBanButtonMarkup(entry.ip, entry.name, "leaderboard")}
       </div>
     `;
 
@@ -291,16 +350,81 @@ function renderApprovedImages(images) {
           <textarea class="text-area review-aliases-input" rows="3" placeholder="Dana Porter, DP Library, DP">${escapeHtml(formatAliasesForInput(image.acceptedAnswers))}</textarea>
         </div>
         <p><strong>Uploader:</strong> ${escapeHtml(image.uploaderName || "Anonymous")}</p>
+        <p><strong>Uploader IP:</strong> ${escapeHtml(image.submitterIp || "Unknown")}</p>
         <p><strong>Approved:</strong> ${escapeHtml(formatDate(image.approvedAt || image.submittedAt))}</p>
         <p><strong>Current aliases:</strong> ${escapeHtml(formatAliases(image.acceptedAnswers))}</p>
       </div>
       <div class="review-actions">
         <button class="button button-primary" data-approved-action="update" data-id="${escapeHtml(image.id)}" type="button">Save changes</button>
         <button class="button button-secondary" data-approved-action="delete" data-id="${escapeHtml(image.id)}" type="button">Delete image</button>
+        ${buildBanButtonMarkup(image.submitterIp, image.uploaderName || image.answer, "approved image")}
       </div>
     `;
 
     approvedImageList.append(card);
+  }
+}
+
+function renderBannedIps(bans) {
+  if (!bannedIpList) {
+    return;
+  }
+
+  bannedIpList.innerHTML = "";
+
+  if (!bans.length) {
+    renderEmptyState(bannedIpList, "No IP bans right now.");
+    return;
+  }
+
+  for (const entry of bans) {
+    const card = document.createElement("article");
+    card.className = "review-card review-card-compact";
+
+    card.innerHTML = `
+      <div class="review-copy">
+        <h3>${escapeHtml(entry.ip)}</h3>
+        <p><strong>Reason label:</strong> ${escapeHtml(entry.label || "Not provided")}</p>
+        <p><strong>Source:</strong> ${escapeHtml(entry.source || "Manual")}</p>
+        <p><strong>Banned:</strong> ${escapeHtml(formatDate(entry.bannedAt))}</p>
+      </div>
+      <div class="review-actions">
+        <button class="button button-primary" data-unban-ip="${escapeHtml(entry.ip)}" type="button">Unban IP</button>
+      </div>
+    `;
+
+    bannedIpList.append(card);
+  }
+}
+
+async function banIpFromButton(button) {
+  if (!adminKey) {
+    setStatus(reviewStatus, "Unlock review before banning IPs.", "warning");
+    return;
+  }
+
+  const ip = button.dataset.banIp || "";
+
+  try {
+    button.disabled = true;
+    setStatus(reviewStatus, "Banning IP address...", "default");
+
+    await requestJson("/api/admin-bans", {
+      method: "POST",
+      headers: adminHeaders(),
+      body: {
+        action: "ban",
+        ip,
+        label: button.dataset.label || "",
+        source: button.dataset.source || "",
+      },
+    });
+
+    setStatus(reviewStatus, "IP address banned.", "success");
+    await loadAdminData();
+  } catch (error) {
+    setStatus(reviewStatus, error.message, "error");
+    button.disabled = false;
   }
 }
 
@@ -310,11 +434,27 @@ function adminHeaders() {
   };
 }
 
+function clearList(container) {
+  if (container) {
+    container.innerHTML = "";
+  }
+}
+
 function renderEmptyState(container, message) {
   const empty = document.createElement("p");
   empty.className = "review-empty";
   empty.textContent = message;
   container.append(empty);
+}
+
+function buildBanButtonMarkup(ip, label, source) {
+  const normalizedIp = String(ip || "").trim();
+
+  if (!normalizedIp || normalizedIp === "Unknown") {
+    return "";
+  }
+
+  return `<button class="button button-secondary" data-ban-ip="${escapeHtml(normalizedIp)}" data-label="${escapeHtml(label || "")}" data-source="${escapeHtml(source || "")}" type="button">Ban IP</button>`;
 }
 
 function formatAliases(values) {
@@ -332,8 +472,7 @@ function formatDuration(value) {
     return "Not recorded";
   }
 
-  const durationMs = parsed;
-  const totalSeconds = Math.floor(durationMs / 1000);
+  const totalSeconds = Math.floor(parsed / 1000);
   const hours = Math.floor(totalSeconds / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
   const seconds = totalSeconds % 60;

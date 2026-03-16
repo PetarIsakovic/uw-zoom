@@ -1,4 +1,5 @@
 import { handleOptions, ensureMethod, json, parseJsonBody, withErrorHandling } from "./_lib/http.js";
+import { requireNotBanned } from "./_lib/bans.js";
 import {
   createPresignedUpload,
   getStorageConfig,
@@ -14,6 +15,7 @@ export const handler = withErrorHandling(async (event) => {
   }
 
   ensureMethod(event, ["POST"]);
+  await requireNotBanned(event, "uploading images");
 
   const body = parseJsonBody(event);
   validateImageType(body.fileType);

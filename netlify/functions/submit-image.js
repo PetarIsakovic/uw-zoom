@@ -1,4 +1,6 @@
 import { HttpError, handleOptions, ensureMethod, json, parseJsonBody, withErrorHandling } from "./_lib/http.js";
+import { requireNotBanned } from "./_lib/bans.js";
+import { getClientIp } from "./_lib/ip.js";
 import { objectExists, pendingMetadataKey, putJson } from "./_lib/storage.js";
 
 export const handler = withErrorHandling(async (event) => {
@@ -9,12 +11,14 @@ export const handler = withErrorHandling(async (event) => {
   }
 
   ensureMethod(event, ["POST"]);
+  await requireNotBanned(event, "uploading images");
 
   const body = parseJsonBody(event);
   const id = String(body.id || "").trim();
   const imageKey = String(body.imageKey || "").trim();
   const uploaderName = normalizeUploaderName(body.uploaderName);
   const answer = String(body.answer || "").trim();
+  const submitterIp = getClientIp(event);
 
   if (!id || !/^[a-z0-9-]{20,80}$/i.test(id)) {
     throw new HttpError(400, "A valid submission id is required.");
@@ -41,6 +45,7 @@ export const handler = withErrorHandling(async (event) => {
     answer,
     acceptedAnswers: [],
     uploaderName,
+    submitterIp,
     uploaderEmail: "",
     notes: "",
     imageKey,
