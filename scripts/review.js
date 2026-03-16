@@ -4,6 +4,7 @@ const adminKeyInput = document.querySelector("#admin-key");
 const loadPendingButton = document.querySelector("#load-pending");
 const reviewStatus = document.querySelector("#review-status");
 const pendingList = document.querySelector("#pending-list");
+const leaderboardAdminList = document.querySelector("#leaderboard-admin-list");
 
 let adminKey = "";
 
@@ -15,7 +16,7 @@ loadPendingButton?.addEventListener("click", async () => {
     return;
   }
 
-  await loadPending();
+  await loadAdminData();
 });
 
 pendingList?.addEventListener("click", async (event) => {
@@ -54,38 +55,85 @@ pendingList?.addEventListener("click", async (event) => {
       action === "approve" ? "Submission approved." : "Submission rejected.",
       "success",
     );
-    await loadPending();
+    await loadAdminData();
   } catch (error) {
     setStatus(reviewStatus, error.message, "error");
     button.disabled = false;
   }
 });
 
-async function loadPending() {
-  try {
-    setStatus(reviewStatus, "Loading pending submissions...", "default");
-    pendingList.innerHTML = "";
+leaderboardAdminList?.addEventListener("click", async (event) => {
+  const button = event.target.closest("[data-entry-id]");
 
-    const payload = await requestJson("/api/admin-submissions", {
+  if (!button) {
+    return;
+  }
+
+  if (!adminKey) {
+    setStatus(reviewStatus, "Unlock review before changing the leaderboard.", "warning");
+    return;
+  }
+
+  const entryId = button.dataset.entryId || "";
+
+  try {
+    button.disabled = true;
+    setStatus(reviewStatus, "Deleting leaderboard entry...", "default");
+
+    await requestJson("/api/admin-leaderboard", {
+      method: "POST",
       headers: adminHeaders(),
+      body: {
+        id: entryId,
+      },
     });
 
-    renderPending(payload.submissions || []);
-
-    if (payload.submissions?.length) {
-      setStatus(reviewStatus, "Review unlocked.", "success");
-    } else {
-      setStatus(reviewStatus, "No pending uploads right now.", "default");
-    }
+    setStatus(reviewStatus, "Leaderboard entry deleted.", "success");
+    await loadAdminData();
   } catch (error) {
+    setStatus(reviewStatus, error.message, "error");
+    button.disabled = false;
+  }
+});
+
+async function loadAdminData() {
+  try {
+    setStatus(reviewStatus, "Loading admin data...", "default");
+    if (pendingList) {
+      pendingList.innerHTML = "";
+    }
+    if (leaderboardAdminList) {
+      leaderboardAdminList.innerHTML = "";
+    }
+
+    const [pendingPayload, leaderboardPayload] = await Promise.all([
+      requestJson("/api/admin-submissions", {
+        headers: adminHeaders(),
+      }),
+      requestJson("/api/admin-leaderboard", {
+        headers: adminHeaders(),
+      }),
+    ]);
+
+    renderPending(pendingPayload.submissions || []);
+    renderLeaderboardEntries(leaderboardPayload.entries || []);
+    setStatus(reviewStatus, "Review unlocked.", "success");
+  } catch (error) {
+    renderPending([]);
+    renderLeaderboardEntries([]);
     setStatus(reviewStatus, error.message, "error");
   }
 }
 
 function renderPending(submissions) {
+  if (!pendingList) {
+    return;
+  }
+
   pendingList.innerHTML = "";
 
   if (!submissions.length) {
+    renderEmptyState(pendingList, "No pending uploads right now.");
     return;
   }
 
@@ -115,14 +163,74 @@ function renderPending(submissions) {
   }
 }
 
+function renderLeaderboardEntries(entries) {
+  if (!leaderboardAdminList) {
+    return;
+  }
+
+  leaderboardAdminList.innerHTML = "";
+
+  if (!entries.length) {
+    renderEmptyState(leaderboardAdminList, "No leaderboard entries yet.");
+    return;
+  }
+
+  for (const entry of entries) {
+    const card = document.createElement("article");
+    card.className = "review-card review-card-compact";
+
+    card.innerHTML = `
+      <div class="review-copy">
+        <h3>${escapeHtml(entry.name || "Anonymous")}</h3>
+        <p><strong>Score:</strong> ${escapeHtml(String(entry.score || 0))} in a row</p>
+        <p><strong>Time:</strong> ${escapeHtml(formatDuration(entry.durationMs))}</p>
+        <p><strong>Played:</strong> ${escapeHtml(formatDate(entry.playedAt))}</p>
+        <p><strong>Result:</strong> ${escapeHtml(entry.result === "win" ? "Win" : "Loss")}</p>
+      </div>
+      <div class="review-actions">
+        <button class="button button-secondary" data-entry-id="${escapeHtml(entry.id)}" type="button">Delete entry</button>
+      </div>
+    `;
+
+    leaderboardAdminList.append(card);
+  }
+}
+
 function adminHeaders() {
   return {
     "x-admin-key": adminKey,
   };
 }
 
+function renderEmptyState(container, message) {
+  const empty = document.createElement("p");
+  empty.className = "review-empty";
+  empty.textContent = message;
+  container.append(empty);
+}
+
 function formatAliases(values) {
   return values?.length ? values.join(", ") : "Only the main answer";
+}
+
+function formatDuration(value) {
+  const parsed = Number(value);
+
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    return "Not recorded";
+  }
+
+  const durationMs = parsed;
+  const totalSeconds = Math.floor(durationMs / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  if (hours > 0) {
+    return `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+  }
+
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
 
 function escapeHtml(value) {

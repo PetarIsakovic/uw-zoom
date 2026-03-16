@@ -20,7 +20,7 @@
     <main class="review-layout">
       <section class="panel review-panel review-panel-standalone">
         <p class="eyebrow">Owner review</p>
-        <h1 class="panel-title">Approve pending uploads</h1>
+        <h1 class="panel-title">Manage uploads and leaderboard</h1>
         <p class="panel-copy">
           Enter your admin key to review submissions. This page is not linked from the public UI.
         </p>
@@ -42,7 +42,22 @@
           Pending submissions will appear here once review is unlocked.
         </p>
 
-        <div class="review-list" id="pending-list"></div>
+        <section class="review-section">
+          <div class="review-section-head">
+            <h2>Pending uploads</h2>
+            <p>Approve or reject new image submissions.</p>
+          </div>
+          <div class="review-list" id="pending-list"></div>
+        </section>
+
+        <section class="review-section">
+          <div class="review-section-head">
+            <h2>Leaderboard</h2>
+            <p>Delete streak entries if you need to clean things up.</p>
+          </div>
+          <div class="review-list" id="leaderboard-admin-list"></div>
+        </section>
+
       </section>
     </main>
 

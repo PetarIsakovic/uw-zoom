@@ -1,3 +1,4 @@
+import { createHash, randomUUID } from "node:crypto";
 import { getJson, putJson, storageConfigured } from "./storage.js";
 
 const LEADERBOARD_KEY = "app/leaderboard/top-streaks.json";
@@ -19,6 +20,7 @@ export async function saveLeaderboardEntry(payload) {
   entries.push(
     normalizeEntry({
       ...payload,
+      id: randomUUID(),
       playedAt: new Date().toISOString(),
     }),
   );
@@ -57,12 +59,30 @@ export function compareLeaderboardEntries(left, right) {
 
 export function normalizeEntry(value) {
   return {
+    id: normalizeEntryId(value),
     name: normalizeName(value?.name),
     score: normalizeScore(value?.score),
     durationMs: normalizeDurationMs(value?.durationMs, 0),
     result: value?.result === "win" ? "win" : "loss",
     playedAt: normalizeTimestamp(value?.playedAt),
   };
+}
+
+export async function deleteLeaderboardEntry(entryId) {
+  if (!storageConfigured()) {
+    return [];
+  }
+
+  const normalizedId = normalizeExplicitId(entryId);
+  const entries = await loadLeaderboardEntries();
+  const nextEntries = entries.filter((entry) => entry.id !== normalizedId);
+
+  await putJson(LEADERBOARD_KEY, {
+    updatedAt: new Date().toISOString(),
+    entries: nextEntries,
+  });
+
+  return nextEntries;
 }
 
 function isValidEntry(value) {
@@ -91,4 +111,27 @@ function normalizeDurationMs(value, fallback = Number.POSITIVE_INFINITY) {
 function normalizeTimestamp(value) {
   const parsed = Date.parse(String(value || ""));
   return Number.isFinite(parsed) ? new Date(parsed).toISOString() : new Date().toISOString();
+}
+
+function normalizeEntryId(value) {
+  const explicitId = normalizeExplicitId(value?.id);
+
+  if (explicitId) {
+    return explicitId;
+  }
+
+  const signature = JSON.stringify({
+    name: normalizeName(value?.name),
+    score: normalizeScore(value?.score),
+    durationMs: normalizeDurationMs(value?.durationMs, 0),
+    result: value?.result === "win" ? "win" : "loss",
+    playedAt: normalizeTimestamp(value?.playedAt),
+  });
+
+  return createHash("sha256").update(signature).digest("hex").slice(0, 24);
+}
+
+function normalizeExplicitId(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  return /^[a-z0-9-]{8,64}$/.test(normalized) ? normalized : "";
 }
