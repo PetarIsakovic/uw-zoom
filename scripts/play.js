@@ -13,6 +13,9 @@ const form = document.querySelector("#guess-form");
 const input = document.querySelector("#guess-input");
 const ghostTyped = document.querySelector("#ghost-typed");
 const ghostSuffix = document.querySelector("#ghost-suffix");
+const suggestionsPanel = document.querySelector("#suggestions-panel");
+const playLoading = document.querySelector("#play-loading");
+const playLoadingCopy = document.querySelector("#play-loading-copy");
 const GAME_OVER_DELAY_MS = 950;
 let wordBank = [];
 let wordBankIndex = createWordBankIndex([]);
@@ -27,16 +30,17 @@ const state = {
   streak: 0,
   highScore: 0,
   inlineSuggestion: "",
+  roundLoadToken: 0,
 };
 
 init();
 
 input.addEventListener("input", () => {
-  updateInlineSuggestion();
+  updateAutocomplete();
 });
 
 input.addEventListener("focus", () => {
-  updateInlineSuggestion();
+  updateAutocomplete();
 });
 
 input.addEventListener("keydown", (event) => {
@@ -74,6 +78,7 @@ input.addEventListener("keydown", (event) => {
 
   if (event.key === "Escape") {
     clearInlineSuggestion();
+    renderSuggestionPanel([]);
   }
 });
 
@@ -112,9 +117,10 @@ async function init() {
       throw new Error("No approved images are available yet.");
     }
 
-    startNewGame();
+    void startNewGame();
   } catch (error) {
     form.hidden = true;
+    setPlayLoading(true, error.message || "We could not start the game.");
     setStatus(feedback, error.message, "error");
     if (guessMeter) {
       guessMeter.textContent = "Waiting";
@@ -176,7 +182,7 @@ form.addEventListener("submit", (event) => {
     );
     window.setTimeout(() => {
       if (state.roundLocked) {
-        loadNextRound();
+        void loadNextRound();
       }
     }, 1100);
     return;
@@ -216,31 +222,60 @@ function startNewGame() {
   state.runStartedAt = Date.now();
   state.streak = 0;
   updateStreakMeter();
-  loadNextRound();
+  return loadNextRound({ isFirstRound: true });
 }
 
-function loadNextRound() {
-  state.current = state.runQueue.shift();
+async function loadNextRound(options = {}) {
+  const nextRound = state.runQueue.shift();
 
-  if (!state.current) {
+  if (!nextRound) {
     return;
   }
 
+  const isFirstRound = Boolean(options.isFirstRound);
+  const loadToken = state.roundLoadToken + 1;
+  state.roundLoadToken = loadToken;
+  state.current = nextRound;
   state.wrongGuesses = 0;
-  state.roundLocked = false;
-
-  image.src = state.current.imageUrl;
-  image.alt = `Mystery image for ${state.current.answer}`;
-  image.style.transformOrigin = `${state.current.focusX || 50}% ${state.current.focusY || 50}%`;
-  updateZoom();
+  state.roundLocked = true;
+  input.disabled = true;
+  setPlayLoading(true, isFirstRound ? "Loading first image..." : "Loading next image...");
 
   form.reset();
-  input.disabled = false;
-  input.focus();
   clearInlineSuggestion();
+  renderSuggestionPanel([]);
   updateGuessMeter();
   updateStreakMeter();
+  if (isFirstRound) {
+    setStatus(feedback, "");
+  }
+
+  try {
+    await preloadImage(nextRound.imageUrl);
+  } catch {
+    if (loadToken !== state.roundLoadToken) {
+      return;
+    }
+
+    setPlayLoading(true, "We could not load this image. Try refreshing.");
+    setStatus(feedback, "We could not load the next image.", "error");
+    return;
+  }
+
+  if (loadToken !== state.roundLoadToken) {
+    return;
+  }
+
+  image.src = nextRound.imageUrl;
+  image.alt = `Mystery image for ${nextRound.answer}`;
+  image.style.transformOrigin = `${nextRound.focusX || 50}% ${nextRound.focusY || 50}%`;
+  updateZoom();
+  state.roundLocked = false;
+  input.disabled = false;
+  input.focus();
+  setPlayLoading(false);
   setStatus(feedback, "");
+  void warmImageCache(state.runQueue[0]?.imageUrl);
 }
 
 function updateZoom() {
@@ -285,8 +320,9 @@ function isCorrectGuess(guess, imageData) {
   });
 }
 
-function updateInlineSuggestion() {
+function updateAutocomplete() {
   if (state.roundLocked || input.disabled) {
+    renderSuggestionPanel([]);
     return;
   }
 
@@ -294,10 +330,12 @@ function updateInlineSuggestion() {
   const selectionStart = input.selectionStart ?? typedValue.length;
   const selectionEnd = input.selectionEnd ?? typedValue.length;
   const caretAtEnd = selectionStart === typedValue.length && selectionEnd === typedValue.length;
+  const suggestions = getSuggestions(typedValue);
 
   if (!typedValue.trim() || !caretAtEnd) {
     state.inlineSuggestion = "";
     renderGhostSuggestion("");
+    renderSuggestionPanel(suggestions);
     return;
   }
 
@@ -306,11 +344,13 @@ function updateInlineSuggestion() {
   if (!suggestion || suggestion === typedValue) {
     state.inlineSuggestion = "";
     renderGhostSuggestion("");
+    renderSuggestionPanel(suggestions);
     return;
   }
 
   state.inlineSuggestion = suggestion;
   renderGhostSuggestion(suggestion);
+  renderSuggestionPanel(suggestions);
 }
 
 function findInlineSuggestion(query) {
@@ -331,15 +371,77 @@ function findInlineSuggestion(query) {
   return "";
 }
 
+function getSuggestions(query, limit = 6) {
+  const normalizedQuery = normalizeAnswer(query);
+
+  if (!normalizedQuery) {
+    return [];
+  }
+
+  const startsWithMatches = [];
+  const includesMatches = [];
+
+  for (const entry of wordBank) {
+    const normalizedEntry = normalizeAnswer(entry);
+
+    if (!normalizedEntry || normalizedEntry === normalizedQuery) {
+      continue;
+    }
+
+    if (normalizedEntry.startsWith(normalizedQuery)) {
+      startsWithMatches.push(entry);
+      continue;
+    }
+
+    if (normalizedEntry.includes(normalizedQuery)) {
+      includesMatches.push(entry);
+    }
+  }
+
+  return [...startsWithMatches, ...includesMatches].slice(0, limit);
+}
+
+function renderSuggestionPanel(suggestions) {
+  if (!suggestionsPanel) {
+    return;
+  }
+
+  suggestionsPanel.replaceChildren();
+
+  if (!suggestions.length) {
+    suggestionsPanel.hidden = true;
+    return;
+  }
+
+  for (const suggestion of suggestions) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "suggestion-button";
+    button.textContent = suggestion;
+    button.addEventListener("pointerdown", (event) => {
+      event.preventDefault();
+      applySuggestion(suggestion);
+    });
+    suggestionsPanel.append(button);
+  }
+
+  suggestionsPanel.hidden = false;
+}
+
+function applySuggestion(suggestion) {
+  input.value = suggestion;
+  input.focus();
+  input.setSelectionRange(input.value.length, input.value.length);
+  clearInlineSuggestion();
+  renderSuggestionPanel([]);
+}
+
 function acceptInlineSuggestion() {
   if (!hasInlineSuggestion()) {
     return;
   }
 
-  input.value = state.inlineSuggestion;
-  state.inlineSuggestion = "";
-  renderGhostSuggestion("");
-  input.setSelectionRange(input.value.length, input.value.length);
+  applySuggestion(state.inlineSuggestion);
 }
 
 function renderGhostSuggestion(suggestion) {
@@ -370,6 +472,59 @@ function clearInlineSuggestion() {
 
 function hasInlineSuggestion() {
   return Boolean(state.inlineSuggestion);
+}
+
+function setPlayLoading(isVisible, message = "Loading image...") {
+  if (!playLoading) {
+    return;
+  }
+
+  if (playLoadingCopy) {
+    playLoadingCopy.textContent = message;
+  }
+
+  playLoading.hidden = !isVisible;
+}
+
+async function preloadImage(url) {
+  if (!url) {
+    throw new Error("Missing image URL.");
+  }
+
+  const loader = new Image();
+  loader.decoding = "async";
+  loader.loading = "eager";
+  loader.src = url;
+
+  if (loader.complete && loader.naturalWidth > 0) {
+    return;
+  }
+
+  try {
+    await loader.decode();
+    return;
+  } catch {
+    await new Promise((resolve, reject) => {
+      loader.addEventListener("load", resolve, { once: true });
+      loader.addEventListener(
+        "error",
+        () => reject(new Error("Could not load image.")),
+        { once: true },
+      );
+    });
+  }
+}
+
+async function warmImageCache(url) {
+  if (!url) {
+    return;
+  }
+
+  try {
+    await preloadImage(url);
+  } catch {
+    // Ignore background warmup errors and fall back to the normal round loader.
+  }
 }
 
 function goToGameOver(payload) {

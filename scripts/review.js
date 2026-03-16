@@ -349,6 +349,7 @@ function renderApprovedImages(images) {
           <span class="field-label">Other accepted answers</span>
           <textarea class="text-area review-aliases-input" rows="3" placeholder="Dana Porter, DP Library, DP">${escapeHtml(formatAliasesForInput(image.acceptedAnswers))}</textarea>
         </div>
+        <p><strong>Source:</strong> ${escapeHtml(image.sourceLabel || image.source || "Approved image")}</p>
         <p><strong>Uploader:</strong> ${escapeHtml(image.uploaderName || "Anonymous")}</p>
         <p><strong>Uploader IP:</strong> ${escapeHtml(image.submitterIp || "Unknown")}</p>
         <p><strong>Approved:</strong> ${escapeHtml(formatDate(image.approvedAt || image.submittedAt))}</p>

@@ -4,9 +4,12 @@ const leaderboardList = document.querySelector("#landing-leaderboard-list");
 const leaderboardEmpty = document.querySelector("#landing-leaderboard-empty");
 const uploadCountList = document.querySelector("#upload-count-list");
 const uploadCountEmpty = document.querySelector("#upload-count-empty");
+const startPlayingLink = document.querySelector("#start-playing-link");
+let playStartWarmupPromise = null;
 
 renderLandingLeaderboard();
 renderUploadCounts();
+setupPlayStartWarmup();
 
 async function renderLandingLeaderboard() {
   if (!leaderboardList || !leaderboardEmpty) {
@@ -159,4 +162,36 @@ async function renderUploadCounts() {
   uploadCountList.append(fragment);
   uploadCountList.hidden = false;
   uploadCountEmpty.hidden = true;
+}
+
+function setupPlayStartWarmup() {
+  if (!startPlayingLink) {
+    return;
+  }
+
+  const triggerWarmup = () => {
+    if (!playStartWarmupPromise) {
+      playStartWarmupPromise = warmPlayStart();
+    }
+  };
+
+  startPlayingLink.addEventListener("pointerenter", triggerWarmup, { once: true });
+  startPlayingLink.addEventListener("focus", triggerWarmup, { once: true });
+  startPlayingLink.addEventListener("touchstart", triggerWarmup, {
+    once: true,
+    passive: true,
+  });
+}
+
+async function warmPlayStart() {
+  const requests = ["/api/approved-images", "/api/word-bank", "/api/leaderboard"].map((url) =>
+    fetch(url, {
+      method: "GET",
+      credentials: "same-origin",
+    })
+      .then((response) => response.text().catch(() => ""))
+      .catch(() => null),
+  );
+
+  await Promise.allSettled(requests);
 }

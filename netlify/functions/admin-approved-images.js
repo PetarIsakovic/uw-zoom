@@ -1,11 +1,15 @@
 import { requireAdmin } from "./_lib/admin.js";
-import { HttpError, handleOptions, ensureMethod, json, parseJsonBody, withErrorHandling } from "./_lib/http.js";
+import { HttpError, getOrigin, handleOptions, ensureMethod, json, parseJsonBody, withErrorHandling } from "./_lib/http.js";
+import {
+  deleteDemoCatalogImage,
+  isDemoCatalogImage,
+  listAdminCatalogImages,
+  updateDemoCatalogImage,
+} from "./_lib/image-catalog.js";
 import {
   approvedMetadataKey,
-  createSignedDownloadUrl,
   deleteObject,
   getJson,
-  listJson,
   putJson,
 } from "./_lib/storage.js";
 
@@ -20,21 +24,42 @@ export const handler = withErrorHandling(async (event) => {
   requireAdmin(event);
 
   if (event.httpMethod === "GET") {
+    const origin = getOrigin(event);
+
     return json(200, {
-      images: await loadApprovedImages(),
+      images: await listAdminCatalogImages(origin),
     });
   }
 
   const body = parseJsonBody(event);
   const id = String(body.id || "").trim();
   const action = String(body.action || "").trim().toLowerCase();
+  const origin = getOrigin(event);
 
-  if (!id || !/^[a-z0-9-]{20,80}$/i.test(id)) {
+  if (!id || !/^[a-z0-9-]{4,80}$/i.test(id)) {
     throw new HttpError(400, "A valid approved image id is required.");
   }
 
   if (!["update", "delete"].includes(action)) {
     throw new HttpError(400, "Action must be update or delete.");
+  }
+
+  if (isDemoCatalogImage(id)) {
+    if (action === "delete") {
+      await deleteDemoCatalogImage(id);
+
+      return json(200, {
+        success: true,
+        action,
+        id,
+      });
+    }
+
+    return json(200, {
+      success: true,
+      action,
+      image: await updateDemoCatalogImage(origin, id, body),
+    });
   }
 
   const metadataKey = approvedMetadataKey(id);
@@ -77,25 +102,6 @@ export const handler = withErrorHandling(async (event) => {
     image: updatedRecord,
   });
 });
-
-async function loadApprovedImages() {
-  const approved = await listJson("approved/meta/");
-
-  const images = await Promise.all(
-    approved.map(async (item) => {
-      if (!item?.id || !item?.imageKey || !item?.answer) {
-        return null;
-      }
-
-      return {
-        ...item,
-        previewUrl: await createSignedDownloadUrl(item.imageKey, 1800),
-      };
-    }),
-  );
-
-  return images.filter(Boolean);
-}
 
 function normalizeAnswer(value) {
   return String(value || "")

@@ -72,7 +72,7 @@ function initLeaderboardForm(result) {
     const name = normalizePlayerName(leaderboardNameInput.value);
 
     if (!name) {
-      setStatus(leaderboardStatus, "Type your name before jumping into another run.", "warning");
+      setStatus(leaderboardStatus, "Type your name before going back home.", "warning");
       leaderboardNameInput.focus();
       return;
     }
@@ -93,7 +93,7 @@ function initLeaderboardForm(result) {
         },
       });
 
-      window.location.assign("/play/");
+      window.location.assign("/");
     } catch (error) {
       setStatus(leaderboardStatus, error.message, "error");
       if (playAgainButton) {

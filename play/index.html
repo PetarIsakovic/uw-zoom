@@ -18,6 +18,10 @@
         <section class="panel play-panel">
           <div class="image-stage">
             <div class="image-frame">
+              <div class="play-loading" id="play-loading" aria-live="polite">
+                <div class="play-loading-mark" aria-hidden="true"></div>
+                <p class="play-loading-copy" id="play-loading-copy">Loading first image...</p>
+              </div>
               <img id="game-image" alt="Current round" />
             </div>
           </div>
@@ -47,6 +51,7 @@
               </div>
               <button class="button button-primary" type="submit">Guess</button>
             </div>
+            <div class="suggestions-panel play-suggestions" id="suggestions-panel" hidden></div>
           </form>
         </section>
       </main>
