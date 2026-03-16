@@ -7,7 +7,7 @@ const uploadStatus = document.querySelector("#upload-status");
 const previewFrame = document.querySelector("#file-preview");
 const previewImage = document.querySelector("#preview-image");
 const answerPanel = document.querySelector("#answer-panel");
-const answerInput = document.querySelector("#answer-input");
+const uploaderNameInput = document.querySelector("#uploader-name");
 
 let previewUrl = "";
 
@@ -31,7 +31,14 @@ uploadForm.addEventListener("submit", async (event) => {
   }
 
   const formData = new FormData(uploadForm);
+  const uploaderName = String(formData.get("uploaderName") || "").trim();
   const answer = String(formData.get("answer") || "").trim();
+
+  if (!uploaderName) {
+    setStatus(uploadStatus, "Add your name so the upload leaderboard can credit you.", "warning");
+    uploaderNameInput?.focus();
+    return;
+  }
 
   if (!answer) {
     setStatus(uploadStatus, "Add the correct answer for this image.", "warning");
@@ -67,6 +74,7 @@ uploadForm.addEventListener("submit", async (event) => {
       body: {
         id: uploadPayload.id,
         imageKey: uploadPayload.imageKey,
+        uploaderName,
         answer,
       },
     });
@@ -149,8 +157,8 @@ function handleSelectedFile(file) {
   previewImage.src = previewUrl;
   previewFrame.hidden = false;
   answerPanel.hidden = false;
-  setStatus(uploadStatus, "Image selected. Now give it a name.", "default");
-  answerInput?.focus();
+  setStatus(uploadStatus, "Image selected. Add your name and the answer, then upload it.", "default");
+  uploaderNameInput?.focus();
 }
 
 function hideAnswerPanel() {

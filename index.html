@@ -8,6 +8,7 @@
       name="description"
       content="UW Zoom is a minimal image-guessing game that starts absurdly zoomed in and slowly reveals the picture."
     />
+    <link rel="icon" href="/University_of_Waterloo_seal.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="/styles/global.css" />
     <link rel="stylesheet" href="/styles/landing.css" />
   </head>
@@ -20,12 +21,22 @@
 
     <main class="landing-main">
       <div class="landing-grid">
-        <aside class="landing-leaderboard" aria-label="Top streaks">
-          <p class="landing-leaderboard-label">Top streaks</p>
-          <ol class="landing-leaderboard-list" id="landing-leaderboard-list"></ol>
-          <p class="landing-leaderboard-empty" id="landing-leaderboard-empty">
-            Finish a run to fill this in.
-          </p>
+        <aside class="landing-sidebar" aria-label="Home leaderboards">
+          <section class="landing-leaderboard" aria-label="Top streaks">
+            <p class="landing-leaderboard-label">Top streaks</p>
+            <ol class="landing-leaderboard-list" id="landing-leaderboard-list"></ol>
+            <p class="landing-leaderboard-empty" id="landing-leaderboard-empty">
+              Finish a run to fill this in.
+            </p>
+          </section>
+
+          <section class="landing-leaderboard" aria-label="Upload leaders">
+            <p class="landing-leaderboard-label">Upload leaders</p>
+            <ol class="landing-leaderboard-list" id="upload-count-list"></ol>
+            <p class="landing-leaderboard-empty" id="upload-count-empty" hidden>
+              Waiting for upload names.
+            </p>
+          </section>
         </aside>
 
         <section class="hero-panel">
@@ -37,14 +48,6 @@
             <a class="button button-primary" href="/play/">Start Playing</a>
           </div>
         </section>
-
-        <aside class="landing-leaderboard" aria-label="Upload counts">
-          <p class="landing-leaderboard-label">Uploads</p>
-          <ol class="landing-leaderboard-list" id="upload-count-list"></ol>
-          <p class="landing-leaderboard-empty" id="upload-count-empty" hidden>
-            Waiting for image counts.
-          </p>
-        </aside>
       </div>
     </main>
 

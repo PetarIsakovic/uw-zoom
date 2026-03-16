@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Owner Review | UW Zoom</title>
+    <meta
+      name="description"
+      content="Review and moderate pending UW Zoom image submissions."
+    />
+    <link rel="icon" href="/University_of_Waterloo_seal.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/styles/global.css" />
+    <link rel="stylesheet" href="/styles/upload.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand brand-small" href="/">UW Zoom</a>
+    </header>
+
+    <main class="review-layout">
+      <section class="panel review-panel review-panel-standalone">
+        <p class="eyebrow">Owner review</p>
+        <h1 class="panel-title">Approve pending uploads</h1>
+        <p class="panel-copy">
+          Enter your admin key to review submissions. This page is not linked from the public UI.
+        </p>
+
+        <div class="admin-lockup">
+          <input
+            class="text-input"
+            id="admin-key"
+            type="password"
+            placeholder="Admin key"
+            autocomplete="current-password"
+          />
+          <button class="button button-secondary" id="load-pending" type="button">
+            Unlock review
+          </button>
+        </div>
+
+        <p class="status-message" id="review-status" data-tone="default">
+          Pending submissions will appear here once review is unlocked.
+        </p>
+
+        <div class="review-list" id="pending-list"></div>
+      </section>
+    </main>
+
+    <script type="module" src="/scripts/review.js"></script>
+  </body>
+</html>

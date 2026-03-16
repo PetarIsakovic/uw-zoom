@@ -95,13 +95,19 @@
 }
 
 .landing-grid {
-  width: min(1080px, 100%);
+  width: min(1120px, 100%);
   display: grid;
-  grid-template-columns: minmax(14rem, 18rem) minmax(0, 1fr) minmax(14rem, 18rem);
+  grid-template-columns: minmax(16rem, 20rem) minmax(0, 1fr);
   align-items: center;
   gap: clamp(1.25rem, 3vw, 2.75rem);
   position: relative;
   z-index: 1;
+}
+
+.landing-sidebar {
+  display: grid;
+  gap: 1rem;
+  align-self: stretch;
 }
 
 .landing-leaderboard {
@@ -144,7 +150,7 @@
 
 .landing-leaderboard-entry {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 0.9rem;
   border-radius: 18px;
@@ -152,22 +158,33 @@
   padding: 0.72rem 0.82rem;
 }
 
+.landing-leaderboard-name,
+.landing-leaderboard-rank {
+  font-weight: 700;
+}
+
+.landing-leaderboard-name {
+  font-size: 0.98rem;
+  letter-spacing: -0.03em;
+}
+
 .landing-leaderboard-rank {
   color: var(--muted);
   font-size: 0.8rem;
-  font-weight: 700;
   letter-spacing: 0.08em;
 }
 
 .landing-leaderboard-score {
   font-size: 0.98rem;
   letter-spacing: -0.03em;
+  white-space: nowrap;
 }
 
 .hero-panel {
-  width: min(760px, 100%);
+  width: min(780px, 100%);
   padding: clamp(2rem, 5vw, 4rem);
   text-align: center;
+  justify-self: center;
 }
 
 .wordmark {
@@ -289,9 +306,17 @@
     gap: 1rem;
   }
 
-  .landing-leaderboard {
+  .hero-panel {
+    order: -1;
+  }
+
+  .landing-sidebar {
     width: min(24rem, 100%);
     justify-self: center;
+  }
+
+  .landing-leaderboard {
+    width: 100%;
   }
 
   .hero-panel {

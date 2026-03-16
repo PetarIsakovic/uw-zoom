@@ -1,0 +1,86 @@
+.game-over-layout {
+  width: min(760px, 100%);
+  min-height: calc(100vh - 88px);
+  margin: 0 auto;
+  padding: 0 1.2rem 2rem;
+  display: grid;
+  place-items: center;
+}
+
+.game-over-panel {
+  width: min(100%, 680px);
+  padding: clamp(1.5rem, 4vw, 2.5rem);
+  display: grid;
+  gap: 1.25rem;
+  text-align: center;
+}
+
+.game-over-title {
+  margin-top: -0.35rem;
+}
+
+.game-over-copy,
+.game-over-answer {
+  margin: 0;
+}
+
+.game-over-answer {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.game-over-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem;
+}
+
+.stat-card {
+  border: 1px solid rgba(17, 17, 17, 0.08);
+  border-radius: var(--radius-lg);
+  padding: 1rem 1.1rem;
+  background: rgba(255, 255, 255, 0.5);
+  display: grid;
+  gap: 0.4rem;
+}
+
+.stat-label {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.stat-value {
+  font-size: clamp(1.8rem, 5vw, 2.8rem);
+  letter-spacing: -0.05em;
+}
+
+.game-over-actions,
+.game-over-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.8rem;
+}
+
+@media (max-width: 640px) {
+  .game-over-layout {
+    min-height: calc(100vh - 72px);
+  }
+
+  .game-over-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .game-over-actions,
+  .game-over-links {
+    flex-direction: column;
+  }
+
+  .game-over-actions .button,
+  .game-over-links .ghost-button {
+    width: 100%;
+  }
+}

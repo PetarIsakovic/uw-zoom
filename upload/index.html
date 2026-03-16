@@ -8,6 +8,7 @@
       name="description"
       content="Submit an image to UW Zoom. Uploads stay pending until approved."
     />
+    <link rel="icon" href="/University_of_Waterloo_seal.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="/styles/global.css" />
     <link rel="stylesheet" href="/styles/upload.css" />
   </head>
@@ -44,6 +45,20 @@
           </figure>
 
           <div class="answer-panel" id="answer-panel" hidden>
+            <label class="field-group">
+              <span class="field-label">Your name</span>
+              <input
+                class="text-input"
+                id="uploader-name"
+                type="text"
+                name="uploaderName"
+                maxlength="60"
+                placeholder="Tell us who uploaded this"
+                autocomplete="name"
+                required
+              />
+            </label>
+
             <label class="field-group">
               <span class="field-label">What should this image be called?</span>
               <input

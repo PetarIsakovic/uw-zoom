@@ -13,6 +13,7 @@ export const handler = withErrorHandling(async (event) => {
   const body = parseJsonBody(event);
   const id = String(body.id || "").trim();
   const imageKey = String(body.imageKey || "").trim();
+  const uploaderName = normalizeUploaderName(body.uploaderName);
   const answer = String(body.answer || "").trim();
 
   if (!id || !/^[a-z0-9-]{20,80}$/i.test(id)) {
@@ -27,6 +28,10 @@ export const handler = withErrorHandling(async (event) => {
     throw new HttpError(400, "The answer is required.");
   }
 
+  if (!uploaderName) {
+    throw new HttpError(400, "The uploader name is required.");
+  }
+
   if (!(await objectExists(imageKey))) {
     throw new HttpError(400, "Upload the image before creating the submission.");
   }
@@ -35,7 +40,7 @@ export const handler = withErrorHandling(async (event) => {
     id,
     answer,
     acceptedAnswers: [],
-    uploaderName: "",
+    uploaderName,
     uploaderEmail: "",
     notes: "",
     imageKey,
@@ -50,3 +55,10 @@ export const handler = withErrorHandling(async (event) => {
     submission,
   });
 });
+
+function normalizeUploaderName(value) {
+  return String(value || "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .slice(0, 60);
+}

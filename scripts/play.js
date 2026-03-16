@@ -15,14 +15,9 @@ const ghostTyped = document.querySelector("#ghost-typed");
 const ghostSuffix = document.querySelector("#ghost-suffix");
 const HIGH_SCORE_STORAGE_KEY = "uwzoom-high-score";
 const LEADERBOARD_STORAGE_KEY = "uwzoom-leaderboard";
-const LEADERBOARD_OPEN_STORAGE_KEY = "uwzoom-leaderboard-open";
 const LAST_RESULT_STORAGE_KEY = "uwzoom-last-result";
 const LEADERBOARD_MAX_ENTRIES = 10;
 const GAME_OVER_DELAY_MS = 950;
-const leaderboardShell = document.querySelector("#leaderboard-shell");
-const leaderboardToggle = document.querySelector("#leaderboard-toggle");
-const leaderboardList = document.querySelector("#leaderboard-list");
-const leaderboardEmpty = document.querySelector("#leaderboard-empty");
 let wordBank = [];
 let wordBankIndex = createWordBankIndex([]);
 
@@ -35,10 +30,8 @@ const state = {
   streak: 0,
   highScore: loadHighScore(),
   inlineSuggestion: "",
-  leaderboardOpen: loadLeaderboardOpenPreference(),
 };
 
-initLeaderboardUI();
 init();
 
 input.addEventListener("input", () => {
@@ -423,84 +416,6 @@ function shuffleArray(values) {
   return copy;
 }
 
-function initLeaderboardUI() {
-  applyLeaderboardState();
-  renderLeaderboard();
-
-  leaderboardToggle?.addEventListener("click", () => {
-    state.leaderboardOpen = !state.leaderboardOpen;
-    applyLeaderboardState();
-    saveLeaderboardOpenPreference(state.leaderboardOpen);
-  });
-}
-
-function applyLeaderboardState() {
-  if (!leaderboardShell || !leaderboardToggle) {
-    return;
-  }
-
-  leaderboardShell.dataset.open = state.leaderboardOpen ? "true" : "false";
-  leaderboardToggle.setAttribute("aria-expanded", String(state.leaderboardOpen));
-}
-
-function renderLeaderboard() {
-  if (!leaderboardList || !leaderboardEmpty) {
-    return;
-  }
-
-  const entries = loadLeaderboardEntries();
-  leaderboardList.replaceChildren();
-
-  if (!entries.length) {
-    leaderboardList.hidden = true;
-    leaderboardEmpty.hidden = false;
-    return;
-  }
-
-  const fragment = document.createDocumentFragment();
-
-  entries.forEach((entry, index) => {
-    fragment.append(buildLeaderboardItem(entry, index));
-  });
-
-  leaderboardList.append(fragment);
-  leaderboardList.hidden = false;
-  leaderboardEmpty.hidden = true;
-}
-
-function buildLeaderboardItem(entry, index) {
-  const item = document.createElement("li");
-  item.className = "leaderboard-entry";
-
-  const topRow = document.createElement("div");
-  topRow.className = "leaderboard-entry-top";
-
-  const rank = document.createElement("span");
-  rank.className = "leaderboard-rank";
-  rank.textContent = `#${index + 1}`;
-
-  const score = document.createElement("strong");
-  score.className = "leaderboard-score";
-  score.textContent = formatLeaderboardScore(entry.score);
-
-  topRow.append(rank, score);
-
-  const bottomRow = document.createElement("div");
-  bottomRow.className = "leaderboard-entry-bottom";
-
-  const when = document.createElement("span");
-  when.textContent = formatLeaderboardDate(entry.playedAt);
-
-  const result = document.createElement("span");
-  result.className = "leaderboard-result";
-  result.dataset.result = entry.result === "win" ? "win" : "loss";
-  result.textContent = entry.result === "win" ? "Won" : "Out";
-
-  bottomRow.append(when, result);
-  item.append(topRow, bottomRow);
-  return item;
-}
-
 function storeLeaderboardEntry(payload) {
   const score = normalizeScore(payload.score);
   const result = payload.result === "win" ? "win" : "loss";
@@ -525,7 +440,6 @@ function storeLeaderboardEntry(payload) {
   });
 
   saveLeaderboardEntries(entries.slice(0, LEADERBOARD_MAX_ENTRIES));
-  renderLeaderboard();
 }
 
 function loadLeaderboardEntries() {
@@ -549,48 +463,6 @@ function saveLeaderboardEntries(entries) {
   } catch {
     // Ignore storage failures and continue without persistence.
   }
-}
-
-function loadLeaderboardOpenPreference() {
-  try {
-    const stored = window.localStorage.getItem(LEADERBOARD_OPEN_STORAGE_KEY);
-
-    if (stored === "true" || stored === "false") {
-      return stored === "true";
-    }
-  } catch {
-    // Ignore storage failures and fall back to viewport defaults.
-  }
-
-  return window.matchMedia("(min-width: 1180px)").matches;
-}
-
-function saveLeaderboardOpenPreference(value) {
-  try {
-    window.localStorage.setItem(LEADERBOARD_OPEN_STORAGE_KEY, String(value));
-  } catch {
-    // Ignore storage failures and continue without persistence.
-  }
-}
-
-function formatLeaderboardDate(value) {
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return "Recently";
-  }
-
-  return new Intl.DateTimeFormat(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(date);
-}
-
-function formatLeaderboardScore(value) {
-  const score = normalizeScore(value);
-  return `${score} pt${score === 1 ? "" : "s"}`;
 }
 
 function normalizeScore(value) {

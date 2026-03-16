@@ -8,6 +8,7 @@
       name="description"
       content="Guess the image before UW Zoom fully zooms out."
     />
+    <link rel="icon" href="/University_of_Waterloo_seal.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="/styles/global.css" />
     <link rel="stylesheet" href="/styles/play.css" />
   </head>
@@ -51,36 +52,6 @@
           </div>
         </form>
       </section>
-
-      <aside
-        class="panel leaderboard-shell"
-        id="leaderboard-shell"
-        data-open="true"
-        aria-label="Leaderboard"
-      >
-        <button
-          class="leaderboard-toggle"
-          id="leaderboard-toggle"
-          type="button"
-          aria-expanded="true"
-          aria-controls="leaderboard-panel"
-        >
-          <span class="leaderboard-toggle-label">Leaderboard</span>
-          <span class="leaderboard-toggle-icon" aria-hidden="true">‹</span>
-        </button>
-
-        <div class="leaderboard-panel" id="leaderboard-panel">
-          <div class="leaderboard-header">
-            <p class="leaderboard-title">Leaderboard</p>
-            <p class="leaderboard-copy">Best local runs on this browser.</p>
-          </div>
-
-          <ol class="leaderboard-list" id="leaderboard-list"></ol>
-          <p class="leaderboard-empty" id="leaderboard-empty">
-            Finish a run to add a score here.
-          </p>
-        </div>
-      </aside>
     </main>
 
     <script type="module" src="/scripts/play.js"></script>
