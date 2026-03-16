@@ -5,7 +5,6 @@ import { WORD_BANK, createWordBankIndex, searchInWordBank } from "/shared/word-b
 const MAX_WRONG_GUESSES = 4;
 const ZOOM_LEVELS = [4.6, 3.2, 2.2, 1.45, 1];
 
-const roundStatus = document.querySelector("#round-status");
 const guessMeter = document.querySelector("#guess-meter");
 const streakMeter = document.querySelector("#streak-meter");
 const feedback = document.querySelector("#feedback");
@@ -91,7 +90,6 @@ async function init() {
   } catch (error) {
     form.hidden = true;
     setStatus(feedback, error.message, "error");
-    roundStatus.textContent = "No images";
     guessMeter.textContent = "Waiting";
   }
 }
@@ -135,7 +133,6 @@ form.addEventListener("submit", (event) => {
         `Correct. It was ${state.current.answer}. We ran out of images and you won.`,
         "success",
       );
-      roundStatus.textContent = "You won";
       guessMeter.textContent = "All cleared";
       nextButton.hidden = false;
       showSummary("win", state.streak, state.highScore);
@@ -148,7 +145,6 @@ form.addEventListener("submit", (event) => {
       `Correct. It was ${state.current.answer}. Streak ${state.streak}. Next image loading...`,
       "success",
     );
-    roundStatus.textContent = "Solved";
     guessMeter.textContent = `${state.wrongGuesses} wrong`;
     window.setTimeout(() => {
       if (state.roundLocked) {
@@ -172,7 +168,6 @@ form.addEventListener("submit", (event) => {
       `Out of guesses. The answer was ${state.current.answer}.`,
       "error",
     );
-    roundStatus.textContent = "Game over";
     guessMeter.textContent = "0 guesses left";
     updateStreakMeter();
     nextButton.hidden = false;
@@ -220,7 +215,6 @@ function loadNextRound() {
   input.focus();
   nextButton.hidden = true;
   hideSuggestions();
-  roundStatus.textContent = state.current.source === "demo" ? "Demo round" : "Approved round";
   updateGuessMeter();
   updateStreakMeter();
   setStatus(feedback, "Guess what the image is before the fourth miss reveals everything.");
