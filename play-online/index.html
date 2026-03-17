@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Play Online | UW Zoom</title>
+    <meta
+      name="description"
+      content="Preview the planned online multiplayer duel mode for UW Zoom."
+    />
+    <link rel="icon" href="/University_of_Waterloo_seal.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/styles/global.css" />
+    <link rel="stylesheet" href="/styles/play-online.css" />
+  </head>
+  <body class="play-online-page">
+    <header class="site-header">
+      <a class="brand brand-small" href="/">UW Zoom</a>
+      <nav class="header-actions" aria-label="Primary">
+        <a class="ghost-button" href="/">Home</a>
+        <a class="ghost-button" href="/play/">Solo Play</a>
+      </nav>
+    </header>
+
+    <main class="play-online-layout">
+      <section class="panel play-online-panel">
+        <div class="play-online-hero">
+          <p class="eyebrow">Online Duel</p>
+          <h1 class="panel-title">Race one other player on the same image.</h1>
+          <p class="panel-copy play-online-copy">
+            Both players get the exact same image, it starts absurdly zoomed in,
+            and every 15 seconds the server zooms it out one step for both people
+            at the same time. First correct guess wins the round.
+          </p>
+        </div>
+
+        <div class="play-online-grid">
+          <section class="play-online-card play-online-card-highlight">
+            <h2>What the match feels like</h2>
+            <ul class="play-online-list">
+              <li>Same image order for both players.</li>
+              <li>Shared countdown before each round starts.</li>
+              <li>Automatic zoom-out every 15 seconds.</li>
+              <li>First valid guess wins the point.</li>
+              <li>Best-of-3 or best-of-5 match format.</li>
+            </ul>
+          </section>
+
+          <section class="play-online-card">
+            <h2>What you would see</h2>
+            <ul class="play-online-list">
+              <li>Your own image and guess box as the main focus.</li>
+              <li>An opponent panel with typing and recent guesses.</li>
+              <li>A timer for the next zoom-out step.</li>
+              <li>A live match score across rounds.</li>
+            </ul>
+          </section>
+
+          <section class="play-online-card">
+            <h2>How it stays fair</h2>
+            <ul class="play-online-list">
+              <li>The server decides the round seed and the reveal timestamps.</li>
+              <li>The server checks answers, not just the browser.</li>
+              <li>The server breaks ties by submission time.</li>
+              <li>Guess spam gets throttled.</li>
+            </ul>
+          </section>
+        </div>
+
+        <div class="play-online-status">
+          <div class="play-online-badge">Coming next</div>
+          <p class="play-online-status-copy">
+            The realtime matchmaking backend is not live yet. The scalable build
+            plan is documented in
+            <a href="/docs/online-duel/">/docs/online-duel/</a>.
+          </p>
+        </div>
+
+        <div class="play-online-actions">
+          <a class="button button-primary" href="/play/">Play Solo For Now</a>
+          <a class="button button-secondary" href="/docs/online-duel/">
+            View Build Plan
+          </a>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

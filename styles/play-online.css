@@ -1,0 +1,122 @@
+.play-online-page {
+  min-height: 100svh;
+}
+
+.play-online-layout {
+  width: min(1180px, 100%);
+  margin: 0 auto;
+  padding: 0 1rem 1.5rem;
+}
+
+.play-online-panel {
+  padding: clamp(1.4rem, 3vw, 2.2rem);
+  display: grid;
+  gap: 1.2rem;
+}
+
+.play-online-hero {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.play-online-copy {
+  width: min(44rem, 100%);
+  margin: 0;
+}
+
+.play-online-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.play-online-card {
+  min-height: 100%;
+  padding: 1.1rem 1.1rem 1.15rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(17, 17, 17, 0.08);
+  background: rgba(255, 255, 255, 0.56);
+  display: grid;
+  gap: 0.75rem;
+}
+
+.play-online-card-highlight {
+  background:
+    linear-gradient(135deg, rgba(242, 180, 0, 0.14), rgba(255, 255, 255, 0.62)),
+    rgba(255, 255, 255, 0.58);
+}
+
+.play-online-card h2 {
+  margin: 0;
+  font-size: 1.15rem;
+  letter-spacing: -0.04em;
+}
+
+.play-online-list {
+  margin: 0;
+  padding-left: 1.15rem;
+  color: var(--muted);
+  display: grid;
+  gap: 0.55rem;
+  line-height: 1.55;
+}
+
+.play-online-status {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem 1.1rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(17, 17, 17, 0.08);
+  background: rgba(255, 252, 246, 0.7);
+}
+
+.play-online-badge {
+  width: fit-content;
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  background: rgba(17, 17, 17, 0.08);
+  color: var(--ink);
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.play-online-status-copy {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.play-online-status-copy a {
+  text-decoration: underline;
+  text-decoration-color: rgba(242, 180, 0, 0.7);
+  text-underline-offset: 0.16em;
+}
+
+.play-online-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+}
+
+@media (max-width: 940px) {
+  .play-online-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .play-online-layout {
+    padding-left: 0.85rem;
+    padding-right: 0.85rem;
+  }
+
+  .play-online-actions {
+    flex-direction: column;
+  }
+
+  .play-online-actions .button {
+    width: 100%;
+  }
+}
