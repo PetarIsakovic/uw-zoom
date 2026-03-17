@@ -22,17 +22,37 @@
     <main class="landing-main">
       <div class="landing-grid">
         <aside class="landing-sidebar" aria-label="Home leaderboards">
-          <section class="landing-leaderboard" aria-label="Top streaks">
+          <section
+            class="landing-leaderboard"
+            id="top-streaks-board"
+            aria-label="Top streaks"
+            data-state="loading"
+          >
             <p class="landing-leaderboard-label">Top streaks</p>
-            <ol class="landing-leaderboard-list" id="landing-leaderboard-list"></ol>
-            <p class="landing-leaderboard-empty" id="landing-leaderboard-empty">
+            <div class="landing-leaderboard-loading" aria-hidden="true">
+              <span class="landing-loading-row"></span>
+              <span class="landing-loading-row"></span>
+              <span class="landing-loading-row"></span>
+            </div>
+            <ol class="landing-leaderboard-list" id="landing-leaderboard-list" hidden></ol>
+            <p class="landing-leaderboard-empty" id="landing-leaderboard-empty" hidden>
               Finish a run to fill this in.
             </p>
           </section>
 
-          <section class="landing-leaderboard" aria-label="Upload leaders">
+          <section
+            class="landing-leaderboard"
+            id="upload-leaders-board"
+            aria-label="Upload leaders"
+            data-state="loading"
+          >
             <p class="landing-leaderboard-label">Upload leaders</p>
-            <ol class="landing-leaderboard-list" id="upload-count-list"></ol>
+            <div class="landing-leaderboard-loading" aria-hidden="true">
+              <span class="landing-loading-row"></span>
+              <span class="landing-loading-row"></span>
+              <span class="landing-loading-row"></span>
+            </div>
+            <ol class="landing-leaderboard-list" id="upload-count-list" hidden></ol>
             <p class="landing-leaderboard-empty" id="upload-count-empty" hidden>
               Waiting for upload names.
             </p>

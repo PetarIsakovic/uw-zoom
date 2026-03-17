@@ -4,6 +4,8 @@ const leaderboardList = document.querySelector("#landing-leaderboard-list");
 const leaderboardEmpty = document.querySelector("#landing-leaderboard-empty");
 const uploadCountList = document.querySelector("#upload-count-list");
 const uploadCountEmpty = document.querySelector("#upload-count-empty");
+const topStreaksBoard = document.querySelector("#top-streaks-board");
+const uploadLeadersBoard = document.querySelector("#upload-leaders-board");
 const startPlayingLink = document.querySelector("#start-playing-link");
 let playStartWarmupPromise = null;
 
@@ -12,7 +14,7 @@ renderUploadCounts();
 setupPlayStartWarmup();
 
 async function renderLandingLeaderboard() {
-  if (!leaderboardList || !leaderboardEmpty) {
+  if (!leaderboardList || !leaderboardEmpty || !topStreaksBoard) {
     return;
   }
 
@@ -30,6 +32,7 @@ async function renderLandingLeaderboard() {
   if (!entries.length) {
     leaderboardList.hidden = true;
     leaderboardEmpty.hidden = false;
+    topStreaksBoard.dataset.state = "empty";
     return;
   }
 
@@ -77,6 +80,7 @@ async function renderLandingLeaderboard() {
   leaderboardList.append(fragment);
   leaderboardList.hidden = false;
   leaderboardEmpty.hidden = true;
+  topStreaksBoard.dataset.state = "ready";
 }
 
 function normalizeScore(value) {
@@ -118,7 +122,7 @@ function formatDuration(value) {
 }
 
 async function renderUploadCounts() {
-  if (!uploadCountList || !uploadCountEmpty) {
+  if (!uploadCountList || !uploadCountEmpty || !uploadLeadersBoard) {
     return;
   }
 
@@ -136,6 +140,7 @@ async function renderUploadCounts() {
   if (!leaders.length) {
     uploadCountList.hidden = true;
     uploadCountEmpty.hidden = false;
+    uploadLeadersBoard.dataset.state = "empty";
     return;
   }
 
@@ -162,6 +167,7 @@ async function renderUploadCounts() {
   uploadCountList.append(fragment);
   uploadCountList.hidden = false;
   uploadCountEmpty.hidden = true;
+  uploadLeadersBoard.dataset.state = "ready";
 }
 
 function setupPlayStartWarmup() {
