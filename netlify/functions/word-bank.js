@@ -31,5 +31,7 @@ export const handler = withErrorHandling(async (event) => {
 
   return json(200, {
     words: unique,
+  }, {
+    "Cache-Control": "private, max-age=45, stale-while-revalidate=120",
   });
 });

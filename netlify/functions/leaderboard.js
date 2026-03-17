@@ -13,6 +13,7 @@ import {
 } from "./_lib/leaderboard.js";
 import { requireNotBanned } from "./_lib/bans.js";
 import { getClientIp } from "./_lib/ip.js";
+import { requireRateLimit } from "./_lib/rate-limit.js";
 import { requireStorage, storageConfigured } from "./_lib/storage.js";
 
 export const handler = withErrorHandling(async (event) => {
@@ -31,11 +32,18 @@ export const handler = withErrorHandling(async (event) => {
       entries: entries.map(toPublicEntry),
       highScore: getHighScore(entries),
       source: storageConfigured() ? "storage" : "demo",
+    }, {
+      "Cache-Control": "public, max-age=30, s-maxage=120, stale-while-revalidate=300",
     });
   }
 
   requireStorage();
   await requireNotBanned(event, "saving leaderboard entries");
+  await requireRateLimit(event, "leaderboard-save", {
+    maxRequests: 25,
+    windowMs: 10 * 60 * 1000,
+    message: "Too many leaderboard submissions from this connection. Try again shortly.",
+  });
 
   const body = parseJsonBody(event);
   const name = normalizeName(body.name);

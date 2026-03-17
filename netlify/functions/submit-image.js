@@ -1,7 +1,16 @@
 import { HttpError, handleOptions, ensureMethod, json, parseJsonBody, withErrorHandling } from "./_lib/http.js";
 import { requireNotBanned } from "./_lib/bans.js";
 import { getClientIp } from "./_lib/ip.js";
-import { objectExists, pendingMetadataKey, putJson } from "./_lib/storage.js";
+import { requireRateLimit } from "./_lib/rate-limit.js";
+import {
+  deleteObject,
+  getObjectMetadata,
+  getStorageConfig,
+  pendingMetadataKey,
+  putJson,
+  validateImageSize,
+  validateImageType,
+} from "./_lib/storage.js";
 
 export const handler = withErrorHandling(async (event) => {
   const preflight = handleOptions(event, ["POST", "OPTIONS"]);
@@ -12,6 +21,11 @@ export const handler = withErrorHandling(async (event) => {
 
   ensureMethod(event, ["POST"]);
   await requireNotBanned(event, "uploading images");
+  await requireRateLimit(event, "submit-image", {
+    maxRequests: 10,
+    windowMs: 10 * 60 * 1000,
+    message: "Too many upload submissions from this connection. Try again in a few minutes.",
+  });
 
   const body = parseJsonBody(event);
   const id = String(body.id || "").trim();
@@ -36,8 +50,29 @@ export const handler = withErrorHandling(async (event) => {
     throw new HttpError(400, "The uploader name is required.");
   }
 
-  if (!(await objectExists(imageKey))) {
+  const metadata = await getObjectMetadata(imageKey);
+
+  if (!metadata) {
     throw new HttpError(400, "Upload the image before creating the submission.");
+  }
+
+  try {
+    validateImageType(metadata.contentType);
+    validateImageSize(metadata.contentLength);
+  } catch (error) {
+    await deleteObject(imageKey).catch(() => {});
+
+    if (error instanceof HttpError) {
+      const { maxUploadMb } = getStorageConfig();
+      throw new HttpError(
+        error.statusCode,
+        metadata.contentLength > maxUploadMb * 1024 * 1024
+          ? `That file was too large. Keep uploads under ${maxUploadMb} MB.`
+          : "Only JPEG, PNG, or WebP uploads are supported.",
+      );
+    }
+
+    throw error;
   }
 
   const submission = {

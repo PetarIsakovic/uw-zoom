@@ -10,6 +10,16 @@ UW Zoom is a minimal Netlify-ready guessing game:
 
 The project is plain HTML, CSS, and JavaScript on the frontend, with Netlify Functions handling AWS S3 uploads and moderation.
 
+## Abuse protection
+
+The deployed app now includes:
+
+- server-side per-IP rate limiting on upload URL creation
+- server-side per-IP rate limiting on upload submission
+- server-side per-IP rate limiting on leaderboard saves
+- S3-enforced upload size limits through presigned POST uploads
+- browser/CDN caching on the safe read endpoints to reduce repeat reads
+
 ## Pages
 
 - `/` landing page
@@ -85,7 +95,7 @@ Because the browser uploads directly to the presigned S3 URL, set bucket CORS si
 [
   {
     "AllowedHeaders": ["*"],
-    "AllowedMethods": ["PUT", "GET", "HEAD"],
+    "AllowedMethods": ["POST", "GET", "HEAD"],
     "AllowedOrigins": ["http://localhost:8888", "https://your-site.netlify.app"],
     "ExposeHeaders": ["ETag"]
   }
@@ -94,10 +104,19 @@ Because the browser uploads directly to the presigned S3 URL, set bucket CORS si
 
 Replace the Netlify domain with your real production URL.
 
+### Strongly recommended lifecycle rules
+
+To avoid paying for abandoned spam uploads, add S3 lifecycle rules for these prefixes:
+
+- `pending/images/` -> expire after `1 day`
+- `pending/meta/` -> expire after `1 day`
+
+That way, if someone uploads files and never completes moderation, they do not sit in your bucket forever.
+
 ## Approval flow
 
 1. A user opens `/upload/` and uploads an image.
-2. The file is sent to S3 under `pending/images/`.
+2. The file is sent to S3 under `pending/images/` with an S3-enforced size limit.
 3. Submission metadata is written to `pending/meta/`.
 4. You unlock review on the upload page with `UWZ_ADMIN_KEY`.
 5. Approving a submission copies it to `approved/images/`, writes `approved/meta/`, and removes the pending files.

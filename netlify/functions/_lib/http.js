@@ -1,8 +1,9 @@
 export class HttpError extends Error {
-  constructor(statusCode, message) {
+  constructor(statusCode, message, headers = {}) {
     super(message);
     this.name = "HttpError";
     this.statusCode = statusCode;
+    this.headers = headers;
   }
 }
 
@@ -14,12 +15,13 @@ export function withErrorHandling(handler) {
       const statusCode = error instanceof HttpError ? error.statusCode : 500;
       const message =
         error instanceof HttpError ? error.message : "Something went wrong on the server.";
+      const headers = error instanceof HttpError ? error.headers || {} : {};
 
       if (!(error instanceof HttpError)) {
         console.error(error);
       }
 
-      return json(statusCode, { error: message });
+      return json(statusCode, { error: message }, headers);
     }
   };
 }

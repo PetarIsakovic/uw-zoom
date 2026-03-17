@@ -1,5 +1,6 @@
 import { handleOptions, ensureMethod, json, parseJsonBody, withErrorHandling } from "./_lib/http.js";
 import { requireNotBanned } from "./_lib/bans.js";
+import { requireRateLimit } from "./_lib/rate-limit.js";
 import {
   createPresignedUpload,
   getStorageConfig,
@@ -16,6 +17,11 @@ export const handler = withErrorHandling(async (event) => {
 
   ensureMethod(event, ["POST"]);
   await requireNotBanned(event, "uploading images");
+  await requireRateLimit(event, "create-upload-url", {
+    maxRequests: 8,
+    windowMs: 10 * 60 * 1000,
+    message: "Too many upload attempts from this connection. Try again in a few minutes.",
+  });
 
   const body = parseJsonBody(event);
   validateImageType(body.fileType);

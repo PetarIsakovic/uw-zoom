@@ -17,6 +17,7 @@ const files = [
   "netlify/functions/_lib/demo-images.js",
   "netlify/functions/_lib/image-catalog.js",
   "netlify/functions/_lib/leaderboard.js",
+  "netlify/functions/_lib/rate-limit.js",
   "netlify/functions/_lib/storage.js",
   "netlify/functions/approved-images.js",
   "netlify/functions/word-bank.js",

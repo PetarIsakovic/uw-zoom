@@ -18,5 +18,7 @@ export const handler = withErrorHandling(async (event) => {
   return json(200, {
     images,
     source: images.every((image) => image.source === "demo") ? "demo" : "catalog",
+  }, {
+    "Cache-Control": "private, max-age=45, stale-while-revalidate=120",
   });
 });

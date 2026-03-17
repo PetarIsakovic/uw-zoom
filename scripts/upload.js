@@ -60,15 +60,20 @@ uploadForm.addEventListener("submit", async (event) => {
       },
     });
 
-    const putResponse = await fetch(uploadPayload.uploadUrl, {
-      method: "PUT",
-      headers: {
-        "Content-Type": file.type,
-      },
-      body: file,
+    const s3FormData = new FormData();
+
+    Object.entries(uploadPayload.uploadFields || {}).forEach(([key, value]) => {
+      s3FormData.append(key, value);
     });
 
-    if (!putResponse.ok) {
+    s3FormData.append("file", file);
+
+    const uploadResponse = await fetch(uploadPayload.uploadUrl, {
+      method: uploadPayload.uploadMethod || "POST",
+      body: s3FormData,
+    });
+
+    if (!uploadResponse.ok) {
       throw new Error("The image upload failed before the submission could be saved.");
     }
 

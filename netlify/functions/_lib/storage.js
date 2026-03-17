@@ -9,6 +9,7 @@ import {
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
+import { createPresignedPost } from "@aws-sdk/s3-presigned-post";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { HttpError } from "./http.js";
 
@@ -69,25 +70,36 @@ export function validateImageSize(fileSize) {
 }
 
 export async function createPresignedUpload({ filename, fileType }) {
-  const { bucket } = requireStorage();
+  const { bucket, maxUploadMb } = requireStorage();
   validateImageType(fileType);
 
   const id = randomUUID();
   const imageKey = `pending/images/${id}${resolveExtension(filename, fileType)}`;
-  const command = new PutObjectCommand({
+  const expiresIn = 120;
+  const maxUploadBytes = maxUploadMb * 1024 * 1024;
+  const upload = await createPresignedPost(getClient(), {
     Bucket: bucket,
     Key: imageKey,
-    ContentType: fileType,
-  });
-
-  const uploadUrl = await getSignedUrl(getClient(), command, {
-    expiresIn: 300,
+    Expires: expiresIn,
+    Fields: {
+      "Content-Type": fileType,
+      success_action_status: "204",
+    },
+    Conditions: [
+      ["eq", "$Content-Type", fileType],
+      ["eq", "$success_action_status", "204"],
+      ["content-length-range", 1, maxUploadBytes],
+    ],
   });
 
   return {
     id,
     imageKey,
-    uploadUrl,
+    uploadMethod: "POST",
+    uploadUrl: upload.url,
+    uploadFields: upload.fields,
+    expiresIn,
+    maxUploadBytes,
   };
 }
 
@@ -118,6 +130,34 @@ export async function objectExists(key) {
       error?.name === "NoSuchKey"
     ) {
       return false;
+    }
+
+    throw error;
+  }
+}
+
+export async function getObjectMetadata(key) {
+  const { bucket } = requireStorage();
+
+  try {
+    const response = await getClient().send(
+      new HeadObjectCommand({
+        Bucket: bucket,
+        Key: key,
+      }),
+    );
+
+    return {
+      contentLength: Number(response.ContentLength || 0),
+      contentType: String(response.ContentType || ""),
+    };
+  } catch (error) {
+    if (
+      error?.$metadata?.httpStatusCode === 404 ||
+      error?.name === "NotFound" ||
+      error?.name === "NoSuchKey"
+    ) {
+      return null;
     }
 
     throw error;
