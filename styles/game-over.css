@@ -19,7 +19,8 @@
 }
 
 .game-over-intro,
-.game-over-summary {
+.game-over-summary,
+.game-over-leaderboards {
   display: grid;
 }
 
@@ -28,6 +29,10 @@
 }
 
 .game-over-summary {
+  gap: 0.8rem;
+}
+
+.game-over-leaderboards {
   gap: 0.8rem;
 }
 
@@ -114,11 +119,165 @@
   gap: 0.8rem;
 }
 
+.game-over-leaderboard {
+  min-height: 11rem;
+  padding: 1rem 1.05rem;
+  border: 4px solid #111111;
+  border-radius: 28px;
+  background: rgba(255, 252, 246, 0.72);
+  box-shadow: 0 20px 55px rgba(17, 17, 17, 0.06);
+  backdrop-filter: blur(10px);
+  display: grid;
+  align-content: start;
+  gap: 0.75rem;
+  text-align: left;
+}
+
+.game-over-leaderboard-label,
+.game-over-leaderboard-empty {
+  margin: 0;
+}
+
+.game-over-leaderboard-label {
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.game-over-leaderboard-empty {
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.game-over-leaderboard-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.game-over-leaderboard-loading {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.game-over-loading-row {
+  display: block;
+  height: 3.55rem;
+  border-radius: 18px;
+  background:
+    linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.46) 0%,
+      rgba(255, 255, 255, 0.88) 48%,
+      rgba(255, 255, 255, 0.46) 100%
+    ),
+    rgba(255, 255, 255, 0.54);
+  background-size: 200% 100%;
+  animation: game-over-loading-shimmer 1.2s ease-in-out infinite;
+}
+
+.game-over-leaderboard[data-state="ready"] .game-over-leaderboard-loading,
+.game-over-leaderboard[data-state="empty"] .game-over-leaderboard-loading {
+  display: none;
+}
+
+.game-over-leaderboard-entry {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.9rem;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.56);
+  padding: 0.72rem 0.82rem;
+}
+
+.game-over-leaderboard-player {
+  display: grid;
+  gap: 0.14rem;
+  min-width: 0;
+}
+
+.game-over-leaderboard-identity {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-width: 0;
+}
+
+.game-over-leaderboard-avatar {
+  width: 2.25rem;
+  height: 2.25rem;
+  flex: 0 0 auto;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: inset 0 0 0 1px rgba(17, 17, 17, 0.06);
+  image-rendering: pixelated;
+}
+
+.game-over-leaderboard-copy {
+  display: grid;
+  gap: 0.14rem;
+  min-width: 0;
+}
+
+.game-over-leaderboard-name,
+.game-over-leaderboard-rank {
+  font-weight: 700;
+}
+
+.game-over-leaderboard-name {
+  font-size: 0.98rem;
+  letter-spacing: -0.03em;
+}
+
+.game-over-leaderboard-rank {
+  color: var(--muted);
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+}
+
+.game-over-leaderboard-metrics {
+  display: grid;
+  justify-items: end;
+  gap: 0.16rem;
+  text-align: right;
+}
+
+.game-over-leaderboard-score {
+  font-size: 0.98rem;
+  letter-spacing: -0.03em;
+  white-space: nowrap;
+  line-height: 1.1;
+}
+
+.game-over-leaderboard-time {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 500;
+  line-height: 1.1;
+}
+
+@keyframes game-over-loading-shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+
+  100% {
+    background-position: -100% 0;
+  }
+}
+
 @media (min-width: 820px) {
   .game-over-panel {
     grid-template-columns: minmax(0, 1fr) minmax(22rem, 25rem);
     grid-template-areas:
       "intro summary"
+      "leaderboards leaderboards"
       "actions links";
     align-content: center;
     align-items: center;
@@ -136,6 +295,12 @@
   .game-over-summary {
     grid-area: summary;
     align-self: center;
+  }
+
+  .game-over-leaderboards {
+    grid-area: leaderboards;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-self: start;
   }
 
   .game-over-actions {
@@ -160,7 +325,8 @@
   }
 
   .game-over-intro,
-  .game-over-summary {
+  .game-over-summary,
+  .game-over-leaderboards {
     gap: 0.65rem;
   }
 
@@ -183,6 +349,11 @@
     padding: 0.75rem 0.82rem;
   }
 
+  .game-over-leaderboard {
+    min-height: 10.4rem;
+    padding: 0.9rem 0.95rem;
+  }
+
   .game-over-actions,
   .game-over-links {
     gap: 0.65rem;
@@ -196,6 +367,10 @@
   }
 
   .game-over-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .game-over-leaderboards {
     grid-template-columns: 1fr;
   }
 

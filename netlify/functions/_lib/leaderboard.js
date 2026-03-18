@@ -1,4 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
+import { normalizeAvatarSelection } from "./avatar-selection.js";
+import { censorProfanity } from "./censor.js";
 import { getJson, putJson, storageConfigured } from "./storage.js";
 
 const LEADERBOARD_KEY = "app/leaderboard/top-streaks.json";
@@ -62,6 +64,7 @@ export function normalizeEntry(value) {
     id: normalizeEntryId(value),
     name: normalizeName(value?.name),
     ip: normalizeIpAddress(value?.ip),
+    avatar: normalizeAvatarSelection(value?.avatar),
     score: normalizeScore(value?.score),
     durationMs: normalizeDurationMs(value?.durationMs, 0),
     result: value?.result === "win" ? "win" : "loss",
@@ -91,10 +94,7 @@ function isValidEntry(value) {
 }
 
 function normalizeName(value) {
-  const normalized = String(value || "")
-    .trim()
-    .replace(/\s+/g, " ")
-    .slice(0, 32);
+  const normalized = censorProfanity(value, { maxLength: 32 });
 
   return normalized || "Anonymous";
 }

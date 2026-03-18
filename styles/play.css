@@ -177,11 +177,6 @@
   background: transparent;
 }
 
-.play-suggestions {
-  min-height: 2.65rem;
-  align-content: start;
-}
-
 .field-label {
   font-size: 0.86rem;
   flex-shrink: 0;

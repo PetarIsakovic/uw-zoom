@@ -6,12 +6,14 @@ import {
   parseJsonBody,
   withErrorHandling,
 } from "./_lib/http.js";
+import { normalizeAvatarSelection } from "./_lib/avatar-selection.js";
 import {
   getHighScore,
   loadLeaderboardEntries,
   saveLeaderboardEntry,
 } from "./_lib/leaderboard.js";
 import { requireNotBanned } from "./_lib/bans.js";
+import { censorProfanity } from "./_lib/censor.js";
 import { getClientIp } from "./_lib/ip.js";
 import { requireRateLimit } from "./_lib/rate-limit.js";
 import { requireStorage, storageConfigured } from "./_lib/storage.js";
@@ -49,6 +51,7 @@ export const handler = withErrorHandling(async (event) => {
   const name = normalizeName(body.name);
   const score = normalizeScore(body.score);
   const durationMs = normalizeDurationMs(body.durationMs);
+  const avatar = normalizeAvatarSelection(body.avatar);
   const result = body.result === "win" ? "win" : "loss";
   const ip = getClientIp(event);
 
@@ -58,6 +61,7 @@ export const handler = withErrorHandling(async (event) => {
 
   const entries = await saveLeaderboardEntry({
     name,
+    avatar,
     score,
     durationMs,
     result,
@@ -72,10 +76,7 @@ export const handler = withErrorHandling(async (event) => {
 });
 
 function normalizeName(value) {
-  return String(value || "")
-    .trim()
-    .replace(/\s+/g, " ")
-    .slice(0, 32);
+  return censorProfanity(value, { maxLength: 32 });
 }
 
 function normalizeScore(value) {
@@ -92,6 +93,7 @@ function toPublicEntry(entry) {
   return {
     id: entry.id,
     name: entry.name,
+    avatar: entry.avatar,
     score: entry.score,
     durationMs: entry.durationMs,
     result: entry.result,

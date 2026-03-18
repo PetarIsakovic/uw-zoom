@@ -75,6 +75,52 @@
           </p>
         </div>
 
+        <section class="game-over-leaderboards">
+          <section
+            class="game-over-leaderboard"
+            id="game-over-top-streaks-board"
+            aria-label="Top streaks"
+            data-state="loading"
+          >
+            <p class="game-over-leaderboard-label">Top streaks</p>
+            <div class="game-over-leaderboard-loading" aria-hidden="true">
+              <span class="game-over-loading-row"></span>
+              <span class="game-over-loading-row"></span>
+              <span class="game-over-loading-row"></span>
+            </div>
+            <ol
+              class="game-over-leaderboard-list"
+              id="game-over-top-streaks-list"
+              hidden
+            ></ol>
+            <p class="game-over-leaderboard-empty" id="game-over-top-streaks-empty" hidden>
+              Finish a run to fill this in.
+            </p>
+          </section>
+
+          <section
+            class="game-over-leaderboard"
+            id="game-over-online-wins-board"
+            aria-label="Online wins"
+            data-state="loading"
+          >
+            <p class="game-over-leaderboard-label">Online Wins</p>
+            <div class="game-over-leaderboard-loading" aria-hidden="true">
+              <span class="game-over-loading-row"></span>
+              <span class="game-over-loading-row"></span>
+              <span class="game-over-loading-row"></span>
+            </div>
+            <ol
+              class="game-over-leaderboard-list"
+              id="game-over-online-wins-list"
+              hidden
+            ></ol>
+            <p class="game-over-leaderboard-empty" id="game-over-online-wins-empty" hidden>
+              No online wins yet.
+            </p>
+          </section>
+        </section>
+
         <div class="game-over-actions">
           <a class="button button-secondary" href="/upload/">Upload your photo</a>
         </div>

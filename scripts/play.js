@@ -1,9 +1,21 @@
-import { normalizeAnswer, requestJson, setStatus } from "/scripts/shared.js";
+import { censorProfanity, normalizeAnswer, requestJson, setStatus } from "/scripts/shared.js";
 import { buildDemoImages } from "/shared/demo-images.js";
+import {
+  readAvatarSelectionFromSearchParams,
+  writeAvatarSelectionToSearchParams,
+} from "/shared/avatar-selection.js";
 import { WORD_BANK, createWordBankIndex } from "/shared/word-bank.js";
 
 const MAX_WRONG_GUESSES = 4;
 const ZOOM_LEVELS = [4.6, 3.2, 2.2, 1.45, 1];
+const WRONG_GUESS_MESSAGES = [
+  "Not quite. This one is easier if you've actually been on campus lately.",
+  "Nope. Feels like a guess from someone who takes every class online.",
+  "Wrong answer. You were confident, though.",
+  "Not this time. A quick walk around campus might help.",
+  "Close enough to submit, not close enough to be right.",
+  "Nope. This might be a sign to leave the house more often.",
+];
 
 const guessMeter = document.querySelector("#guess-meter");
 const streakMeter = document.querySelector("#streak-meter");
@@ -13,10 +25,11 @@ const form = document.querySelector("#guess-form");
 const input = document.querySelector("#guess-input");
 const ghostTyped = document.querySelector("#ghost-typed");
 const ghostSuffix = document.querySelector("#ghost-suffix");
-const suggestionsPanel = document.querySelector("#suggestions-panel");
 const playLoading = document.querySelector("#play-loading");
 const playLoadingCopy = document.querySelector("#play-loading-copy");
 const GAME_OVER_DELAY_MS = 950;
+const preferredPlayerName = loadPreferredPlayerName();
+const preferredAvatarSelection = loadPreferredAvatarSelection();
 let wordBank = [];
 let wordBankIndex = createWordBankIndex([]);
 
@@ -31,6 +44,7 @@ const state = {
   highScore: 0,
   inlineSuggestion: "",
   roundLoadToken: 0,
+  wrongGuessMessageIndex: -1,
 };
 
 init();
@@ -63,22 +77,8 @@ input.addEventListener("keydown", (event) => {
     }
   }
 
-  if (event.key === "Enter" && hasInlineSuggestion()) {
-    const selectionStart = input.selectionStart ?? 0;
-    const selectionEnd = input.selectionEnd ?? 0;
-    const caretAtEnd =
-      selectionStart === input.value.length && selectionEnd === input.value.length;
-
-    if (caretAtEnd) {
-      event.preventDefault();
-      acceptInlineSuggestion();
-      return;
-    }
-  }
-
   if (event.key === "Escape") {
     clearInlineSuggestion();
-    renderSuggestionPanel([]);
   }
 });
 
@@ -135,20 +135,16 @@ form.addEventListener("submit", (event) => {
     return;
   }
 
-  const typedGuess = normalizeAnswer(input.value);
-  const resolvedGuess = wordBankIndex.get(typedGuess) || null;
+  const displayedGuess = normalizeGuessDisplay(input.value);
 
-  if (!input.value.trim()) {
+  if (!displayedGuess) {
     setStatus(feedback, "Type a guess before submitting.", "warning");
     return;
   }
 
-  if (!resolvedGuess) {
-    setStatus(feedback, "That guess is not in the word bank.", "warning");
-    return;
-  }
+  const resolvedGuess = wordBankIndex.get(normalizeAnswer(displayedGuess)) || displayedGuess;
 
-  input.value = resolvedGuess;
+  input.value = censorProfanity(resolvedGuess, { maxLength: 80 });
   clearInlineSuggestion();
 
   const guess = normalizeAnswer(resolvedGuess);
@@ -213,7 +209,7 @@ form.addEventListener("submit", (event) => {
 
   updateZoom();
   updateGuessMeter();
-  setStatus(feedback, "Not quite. The image just zoomed out a little more.", "warning");
+  setStatus(feedback, getNextWrongGuessMessage(), "warning");
   input.select();
 });
 
@@ -243,7 +239,6 @@ async function loadNextRound(options = {}) {
 
   form.reset();
   clearInlineSuggestion();
-  renderSuggestionPanel([]);
   updateGuessMeter();
   updateStreakMeter();
   if (isFirstRound) {
@@ -322,7 +317,7 @@ function isCorrectGuess(guess, imageData) {
 
 function updateAutocomplete() {
   if (state.roundLocked || input.disabled) {
-    renderSuggestionPanel([]);
+    clearInlineSuggestion();
     return;
   }
 
@@ -330,27 +325,21 @@ function updateAutocomplete() {
   const selectionStart = input.selectionStart ?? typedValue.length;
   const selectionEnd = input.selectionEnd ?? typedValue.length;
   const caretAtEnd = selectionStart === typedValue.length && selectionEnd === typedValue.length;
-  const suggestions = getSuggestions(typedValue);
 
   if (!typedValue.trim() || !caretAtEnd) {
-    state.inlineSuggestion = "";
-    renderGhostSuggestion("");
-    renderSuggestionPanel(suggestions);
+    clearInlineSuggestion();
     return;
   }
 
   const suggestion = findInlineSuggestion(typedValue);
 
   if (!suggestion || suggestion === typedValue) {
-    state.inlineSuggestion = "";
-    renderGhostSuggestion("");
-    renderSuggestionPanel(suggestions);
+    clearInlineSuggestion();
     return;
   }
 
   state.inlineSuggestion = suggestion;
   renderGhostSuggestion(suggestion);
-  renderSuggestionPanel(suggestions);
 }
 
 function findInlineSuggestion(query) {
@@ -371,77 +360,15 @@ function findInlineSuggestion(query) {
   return "";
 }
 
-function getSuggestions(query, limit = 6) {
-  const normalizedQuery = normalizeAnswer(query);
-
-  if (!normalizedQuery) {
-    return [];
-  }
-
-  const startsWithMatches = [];
-  const includesMatches = [];
-
-  for (const entry of wordBank) {
-    const normalizedEntry = normalizeAnswer(entry);
-
-    if (!normalizedEntry || normalizedEntry === normalizedQuery) {
-      continue;
-    }
-
-    if (normalizedEntry.startsWith(normalizedQuery)) {
-      startsWithMatches.push(entry);
-      continue;
-    }
-
-    if (normalizedEntry.includes(normalizedQuery)) {
-      includesMatches.push(entry);
-    }
-  }
-
-  return [...startsWithMatches, ...includesMatches].slice(0, limit);
-}
-
-function renderSuggestionPanel(suggestions) {
-  if (!suggestionsPanel) {
-    return;
-  }
-
-  suggestionsPanel.replaceChildren();
-
-  if (!suggestions.length) {
-    suggestionsPanel.hidden = true;
-    return;
-  }
-
-  for (const suggestion of suggestions) {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "suggestion-button";
-    button.textContent = suggestion;
-    button.addEventListener("pointerdown", (event) => {
-      event.preventDefault();
-      applySuggestion(suggestion);
-    });
-    suggestionsPanel.append(button);
-  }
-
-  suggestionsPanel.hidden = false;
-}
-
-function applySuggestion(suggestion) {
-  input.value = suggestion;
-  input.focus();
-  input.setSelectionRange(input.value.length, input.value.length);
-  clearInlineSuggestion();
-  renderSuggestionPanel([]);
-}
-
 function acceptInlineSuggestion() {
   if (!hasInlineSuggestion()) {
     return;
   }
 
-  applySuggestion(state.inlineSuggestion);
+  input.value = state.inlineSuggestion;
+  input.focus();
+  input.setSelectionRange(input.value.length, input.value.length);
+  clearInlineSuggestion();
 }
 
 function renderGhostSuggestion(suggestion) {
@@ -451,9 +378,7 @@ function renderGhostSuggestion(suggestion) {
 
   const typedValue = input.value;
   ghostTyped.textContent = typedValue;
-  ghostSuffix.textContent = suggestion.startsWith(typedValue)
-    ? suggestion.slice(typedValue.length)
-    : "";
+  ghostSuffix.textContent = resolveSuggestionSuffix(typedValue, suggestion);
 }
 
 function clearGhostSuggestion() {
@@ -472,6 +397,45 @@ function clearInlineSuggestion() {
 
 function hasInlineSuggestion() {
   return Boolean(state.inlineSuggestion);
+}
+
+function resolveSuggestionSuffix(typedValue, suggestion) {
+  const normalizedTyped = String(typedValue || "");
+  const normalizedSuggestion = String(suggestion || "");
+
+  if (
+    normalizedSuggestion.toLocaleLowerCase("en-CA").startsWith(
+      normalizedTyped.toLocaleLowerCase("en-CA"),
+    )
+  ) {
+    return normalizedSuggestion.slice(normalizedTyped.length);
+  }
+
+  return "";
+}
+
+function getNextWrongGuessMessage() {
+  if (!WRONG_GUESS_MESSAGES.length) {
+    return "Not quite.";
+  }
+
+  let nextIndex = Math.floor(Math.random() * WRONG_GUESS_MESSAGES.length);
+
+  if (WRONG_GUESS_MESSAGES.length > 1) {
+    while (nextIndex === state.wrongGuessMessageIndex) {
+      nextIndex = Math.floor(Math.random() * WRONG_GUESS_MESSAGES.length);
+    }
+  }
+
+  state.wrongGuessMessageIndex = nextIndex;
+  return WRONG_GUESS_MESSAGES[nextIndex];
+}
+
+function normalizeGuessDisplay(value) {
+  return String(value || "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .slice(0, 80);
 }
 
 function setPlayLoading(isVisible, message = "Loading image...") {
@@ -541,6 +505,12 @@ function goToGameOver(payload) {
     durationMs: String(completedPayload.durationMs),
   });
 
+  if (preferredPlayerName) {
+    params.set("name", preferredPlayerName);
+  }
+
+  writeAvatarSelectionToSearchParams(params, preferredAvatarSelection);
+
   window.setTimeout(() => {
     window.location.assign(`/game-over/?${params.toString()}`);
   }, GAME_OVER_DELAY_MS);
@@ -574,4 +544,18 @@ function shuffleArray(values) {
   }
 
   return copy;
+}
+
+function loadPreferredPlayerName() {
+  const params = new URLSearchParams(window.location.search);
+
+  return String(params.get("name") || "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .slice(0, 32);
+}
+
+function loadPreferredAvatarSelection() {
+  const params = new URLSearchParams(window.location.search);
+  return readAvatarSelectionFromSearchParams(params);
 }

@@ -3,71 +3,451 @@
 }
 
 .play-online-layout {
-  width: min(1180px, 100%);
+  width: min(1260px, 100%);
   margin: 0 auto;
   padding: 0 1rem 1.5rem;
 }
 
 .play-online-panel {
-  padding: clamp(1.4rem, 3vw, 2.2rem);
+  padding: clamp(1.2rem, 2.7vw, 2rem);
   display: grid;
-  gap: 1.2rem;
+  gap: 1rem;
 }
 
 .play-online-hero {
   display: grid;
-  gap: 0.7rem;
+  gap: 0.75rem;
 }
 
 .play-online-copy {
-  width: min(44rem, 100%);
+  width: min(42rem, 100%);
   margin: 0;
 }
 
-.play-online-grid {
+.play-online-join {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 1rem;
+  gap: 0.7rem;
+  padding: 1rem 1.05rem;
+  border: 1px solid rgba(17, 17, 17, 0.08);
+  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.52);
 }
 
-.play-online-card {
-  min-height: 100%;
-  padding: 1.1rem 1.1rem 1.15rem;
-  border-radius: var(--radius-lg);
-  border: 1px solid rgba(17, 17, 17, 0.08);
-  background: rgba(255, 255, 255, 0.56);
+.play-online-entry-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.8rem;
+  align-items: end;
+}
+
+.play-online-name-field {
+  min-width: 0;
+}
+
+.play-online-entry-actions {
   display: grid;
   gap: 0.75rem;
+  align-items: stretch;
 }
 
-.play-online-card-highlight {
-  background:
-    linear-gradient(135deg, rgba(242, 180, 0, 0.14), rgba(255, 255, 255, 0.62)),
-    rgba(255, 255, 255, 0.58);
+.play-online-entry-actions .button {
+  width: 100%;
 }
 
-.play-online-card h2 {
-  margin: 0;
-  font-size: 1.15rem;
-  letter-spacing: -0.04em;
+.play-online-create-button {
+  min-height: 2.9rem;
+  padding-block: 0.75rem;
+  font-size: 0.9rem;
 }
 
-.play-online-list {
-  margin: 0;
-  padding-left: 1.15rem;
-  color: var(--muted);
+.play-online-lobby,
+.play-online-queue,
+.play-online-summary {
   display: grid;
-  gap: 0.55rem;
+  gap: 0.9rem;
+  min-height: 12rem;
+  padding: 1.3rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(17, 17, 17, 0.08);
+  background:
+    linear-gradient(135deg, rgba(242, 180, 0, 0.12), rgba(255, 255, 255, 0.62)),
+    rgba(255, 252, 246, 0.74);
+}
+
+.play-online-queue,
+.play-online-summary {
+  place-items: center;
+  text-align: center;
+}
+
+.play-online-lobby {
+  align-content: start;
+}
+
+.play-online-lobby-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: start;
+  gap: 0.9rem;
+}
+
+.play-online-lobby-copy {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.play-online-lobby-title,
+.play-online-lobby-subtitle {
+  margin: 0;
+}
+
+.play-online-lobby-title {
+  font-size: clamp(1.35rem, 3vw, 1.9rem);
+  letter-spacing: -0.05em;
+}
+
+.play-online-lobby-subtitle {
+  color: var(--muted);
   line-height: 1.55;
 }
 
-.play-online-status {
+.play-online-start-button {
+  min-height: 3rem;
+}
+
+.play-online-room-link-row {
   display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 0.75rem;
-  padding: 1rem 1.1rem;
+  align-items: center;
+}
+
+.play-online-room-link {
+  font-size: 0.92rem;
+}
+
+.play-online-room-roster {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.65rem;
+}
+
+.play-online-room-roster-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.85rem;
+  align-items: center;
+  padding: 0.75rem 0.8rem;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.64);
+}
+
+.play-online-room-roster-identity {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  min-width: 0;
+}
+
+.play-online-room-roster-avatar {
+  width: 2.25rem;
+  height: 2.25rem;
+  flex: 0 0 auto;
+  image-rendering: pixelated;
+}
+
+.play-online-room-roster-name {
+  font-size: 0.98rem;
+  letter-spacing: -0.03em;
+}
+
+.play-online-room-roster-meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.4rem;
+}
+
+.play-online-room-roster-badge {
+  padding: 0.28rem 0.55rem;
+  border-radius: 999px;
+  background: rgba(17, 17, 17, 0.08);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.play-online-queue-copy {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.play-online-queue-copy h2,
+.play-online-summary-title {
+  margin: 0;
+  font-size: clamp(1.4rem, 3vw, 2rem);
+  letter-spacing: -0.05em;
+}
+
+.play-online-queue-copy p,
+.play-online-summary-copy {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.play-online-match {
+  display: grid;
+  gap: 0.95rem;
+}
+
+.play-online-scoreboard {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
+  align-items: stretch;
+}
+
+.play-online-player-card {
+  padding: 1rem 1.05rem;
   border-radius: var(--radius-lg);
   border: 1px solid rgba(17, 17, 17, 0.08);
-  background: rgba(255, 252, 246, 0.7);
+  background: rgba(255, 255, 255, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.85rem;
+}
+
+.play-online-player-card[data-you="true"] {
+  border-color: rgba(242, 180, 0, 0.7);
+  box-shadow: inset 0 0 0 1px rgba(242, 180, 0, 0.32);
+}
+
+.play-online-player-identity {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.play-online-player-avatar {
+  width: 2.5rem;
+  height: 2.5rem;
+  flex: 0 0 auto;
+  image-rendering: pixelated;
+}
+
+.play-online-player-copy {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.play-online-player-label {
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.play-online-player-name {
+  font-size: clamp(1.1rem, 2vw, 1.35rem);
+  letter-spacing: -0.04em;
+}
+
+.play-online-player-score {
+  font-size: clamp(1.65rem, 3vw, 2.2rem);
+  font-weight: 700;
+  letter-spacing: -0.07em;
+  line-height: 1;
+}
+
+.play-online-round-bar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.65rem;
+  padding: 0.2rem 0.1rem;
+}
+
+.play-online-round-label,
+.play-online-timer-label {
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.play-online-timer-label {
+  color: var(--muted);
+}
+
+.play-online-arena {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(20rem, 0.9fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.play-online-stage {
+  min-width: 0;
+}
+
+.play-online-image-frame {
+  position: relative;
+  min-height: clamp(320px, 58vh, 720px);
+  overflow: hidden;
+  border-radius: calc(var(--radius-xl) - 8px);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.76), rgba(255, 255, 255, 0.46)),
+    rgba(17, 17, 17, 0.05);
+}
+
+.play-online-image-frame::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 1px solid rgba(17, 17, 17, 0.08);
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+#online-game-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scale(4.6);
+  transform-origin: center center;
+  transition: transform 450ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.play-online-image-loading {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.85rem;
+  padding: 1.25rem;
+  text-align: center;
+  background:
+    linear-gradient(180deg, rgba(255, 252, 246, 0.9), rgba(255, 252, 246, 0.76)),
+    radial-gradient(circle at 50% 42%, rgba(242, 180, 0, 0.08), transparent 12rem);
+}
+
+.play-online-image-loading-copy {
+  margin: 0;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.play-online-feed {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.play-online-feed-card {
+  padding: 0.95rem 1rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(17, 17, 17, 0.08);
+  background: rgba(255, 255, 255, 0.54);
+  display: grid;
+  gap: 0.65rem;
+}
+
+.play-online-feed-card h2 {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.play-online-feed-copy {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.play-online-guess-list,
+.play-online-round-history {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.play-online-guess-list li,
+.play-online-round-history li {
+  padding: 0.6rem 0.7rem;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.58);
+  line-height: 1.45;
+}
+
+.play-online-guess-list li[data-correct="true"] {
+  background: rgba(13, 125, 70, 0.1);
+}
+
+.play-online-empty-item {
+  color: var(--muted);
+}
+
+.play-online-guess-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.8rem;
+  align-items: end;
+}
+
+.play-online-guess-field {
+  min-width: 0;
+}
+
+.play-online-autocomplete-shell {
+  position: relative;
+}
+
+.play-online-autocomplete-shell .autocomplete-ghost {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  padding: 0.82rem 0.95rem;
+  pointer-events: none;
+  white-space: nowrap;
+  overflow: hidden;
+  font: inherit;
+}
+
+.play-online-autocomplete-shell .autocomplete-typed {
+  color: transparent;
+}
+
+.play-online-autocomplete-shell .autocomplete-suffix {
+  color: rgba(17, 17, 17, 0.32);
+}
+
+.play-online-autocomplete-shell .autocomplete-input {
+  position: relative;
+  z-index: 1;
+  background: transparent;
+}
+
+.play-online-status {
+  min-height: 1.4rem;
+}
+
+.play-online-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.85rem;
 }
 
 .play-online-badge {
@@ -82,41 +462,51 @@
   text-transform: uppercase;
 }
 
-.play-online-status-copy {
-  margin: 0;
-  color: var(--muted);
-  line-height: 1.6;
+.play-online-spinner {
+  width: 3rem;
+  height: 3rem;
+  border-radius: 999px;
+  border: 3px solid rgba(17, 17, 17, 0.12);
+  border-top-color: rgba(242, 180, 0, 0.95);
+  animation: play-online-spin 900ms linear infinite;
 }
 
-.play-online-status-copy a {
-  text-decoration: underline;
-  text-decoration-color: rgba(242, 180, 0, 0.7);
-  text-underline-offset: 0.16em;
+@keyframes play-online-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
-.play-online-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.85rem;
-}
-
-@media (max-width: 940px) {
-  .play-online-grid {
+@media (max-width: 980px) {
+  .play-online-arena {
     grid-template-columns: 1fr;
   }
+
+  .play-online-image-frame {
+    min-height: clamp(280px, 52vw, 560px);
+  }
 }
 
-@media (max-width: 640px) {
-  .play-online-layout {
-    padding-left: 0.85rem;
-    padding-right: 0.85rem;
+@media (max-width: 760px) {
+  .play-online-entry-form,
+  .play-online-guess-form {
+    grid-template-columns: 1fr;
   }
 
+  .play-online-room-link-row {
+    grid-template-columns: 1fr;
+  }
+
+  .play-online-lobby-header,
   .play-online-actions {
     flex-direction: column;
   }
 
-  .play-online-actions .button {
+  .play-online-entry-actions .button,
+  .play-online-actions .button,
+  .play-online-guess-form .button,
+  .play-online-room-link-row .button,
+  .play-online-start-button {
     width: 100%;
   }
 }

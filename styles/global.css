@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Space+Grotesk:wght@400;500;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap");
 
 :root {
   --bg: #f8f3eb;
@@ -32,7 +32,7 @@ body {
   min-height: 100vh;
   color: var(--ink);
   background: var(--bg);
-  font-family: "Space Grotesk", "Trebuchet MS", sans-serif;
+  font-family: "Fredoka One", "Trebuchet MS", sans-serif;
   position: relative;
   overflow-x: hidden;
 }

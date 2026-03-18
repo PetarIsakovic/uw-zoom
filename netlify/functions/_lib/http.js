@@ -71,10 +71,18 @@ export function json(statusCode, body, extraHeaders = {}) {
 }
 
 export function getOrigin(event) {
+  if (event.rawUrl) {
+    try {
+      return new URL(event.rawUrl).origin;
+    } catch {
+      // Fall through to header-based origin resolution.
+    }
+  }
+
   const proto =
     event.headers["x-forwarded-proto"] ||
     event.headers["X-Forwarded-Proto"] ||
-    "https";
+    resolveDefaultProto(event.headers.host || event.headers.Host || "");
   const host = event.headers.host || event.headers.Host;
 
   if (!host) {
@@ -82,4 +90,18 @@ export function getOrigin(event) {
   }
 
   return `${proto}://${host}`;
+}
+
+function resolveDefaultProto(host) {
+  const normalizedHost = String(host || "").toLowerCase();
+
+  if (
+    normalizedHost.startsWith("localhost") ||
+    normalizedHost.startsWith("127.0.0.1") ||
+    normalizedHost.startsWith("[::1]")
+  ) {
+    return "http";
+  }
+
+  return "https";
 }

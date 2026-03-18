@@ -6,7 +6,7 @@
     <title>Play Online | UW Zoom</title>
     <meta
       name="description"
-      content="Preview the planned online multiplayer duel mode for UW Zoom."
+      content="Race another player on the same zoomed-in image in UW Zoom online duel mode."
     />
     <link rel="icon" href="/University_of_Waterloo_seal.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="/styles/global.css" />
@@ -17,71 +17,193 @@
       <a class="brand brand-small" href="/">UW Zoom</a>
       <nav class="header-actions" aria-label="Primary">
         <a class="ghost-button" href="/">Home</a>
-        <a class="ghost-button" href="/play/">Solo Play</a>
       </nav>
     </header>
 
     <main class="play-online-layout">
       <section class="panel play-online-panel">
         <div class="play-online-hero">
-          <p class="eyebrow">Online Duel</p>
-          <h1 class="panel-title">Race one other player on the same image.</h1>
+          <div>
+            <p class="eyebrow">Online Duel</p>
+            <h1 class="panel-title">Same image. Same timer. First correct guess wins.</h1>
+          </div>
           <p class="panel-copy play-online-copy">
-            Both players get the exact same image, it starts absurdly zoomed in,
-            and every 15 seconds the server zooms it out one step for both people
-            at the same time. First correct guess wins the round.
+            Both players get the exact same image at the exact same time. The zoom
+            steps out every 15 seconds for both players together.
           </p>
         </div>
 
-        <div class="play-online-grid">
-          <section class="play-online-card play-online-card-highlight">
-            <h2>What the match feels like</h2>
-            <ul class="play-online-list">
-              <li>Same image order for both players.</li>
-              <li>Shared countdown before each round starts.</li>
-              <li>Automatic zoom-out every 15 seconds.</li>
-              <li>First valid guess wins the point.</li>
-              <li>Best-of-3 or best-of-5 match format.</li>
-            </ul>
-          </section>
-
-          <section class="play-online-card">
-            <h2>What you would see</h2>
-            <ul class="play-online-list">
-              <li>Your own image and guess box as the main focus.</li>
-              <li>An opponent panel with typing and recent guesses.</li>
-              <li>A timer for the next zoom-out step.</li>
-              <li>A live match score across rounds.</li>
-            </ul>
-          </section>
-
-          <section class="play-online-card">
-            <h2>How it stays fair</h2>
-            <ul class="play-online-list">
-              <li>The server decides the round seed and the reveal timestamps.</li>
-              <li>The server checks answers, not just the browser.</li>
-              <li>The server breaks ties by submission time.</li>
-              <li>Guess spam gets throttled.</li>
-            </ul>
-          </section>
-        </div>
-
-        <div class="play-online-status">
-          <div class="play-online-badge">Coming next</div>
-          <p class="play-online-status-copy">
-            The realtime matchmaking backend is not live yet. The scalable build
-            plan is documented in
-            <a href="/docs/online-duel/">/docs/online-duel/</a>.
+        <section class="play-online-join" id="online-join">
+          <form class="play-online-entry-form" id="online-entry-form" autocomplete="off">
+            <label class="field-group play-online-name-field" for="online-player-name">
+              <span class="field-label">Name</span>
+              <input
+                class="text-input"
+                id="online-player-name"
+                name="playerName"
+                type="text"
+                maxlength="32"
+                placeholder="Type your name"
+                autocomplete="nickname"
+                required
+              />
+            </label>
+            <div class="play-online-entry-actions">
+              <button class="button button-primary" id="join-match-button" type="submit">
+                Find Match
+              </button>
+              <button
+                class="button button-secondary play-online-create-button"
+                id="create-private-room-button"
+                type="button"
+              >
+                Create Private Room
+              </button>
+              <button class="button button-secondary" id="leave-match-button" type="button" hidden>
+                Leave Queue
+              </button>
+            </div>
+          </form>
+          <p class="status-message play-online-status" id="online-status" data-tone="default">
+            Queue into a public room. It starts 10 seconds after player two arrives.
           </p>
-        </div>
+        </section>
 
-        <div class="play-online-actions">
-          <a class="button button-primary" href="/play/">Play Solo For Now</a>
-          <a class="button button-secondary" href="/docs/online-duel/">
-            View Build Plan
-          </a>
-        </div>
+        <section class="play-online-lobby" id="online-lobby" hidden>
+          <div class="play-online-lobby-header">
+            <div class="play-online-lobby-copy">
+              <p class="eyebrow">Private Room</p>
+              <h2 class="play-online-lobby-title" id="online-room-title">Private Room</h2>
+              <p class="play-online-lobby-subtitle" id="online-room-copy">
+                Share the room link below. Only people with that link can join.
+              </p>
+            </div>
+            <button
+              class="button button-secondary play-online-start-button"
+              id="start-room-button"
+              type="button"
+              hidden
+            >
+              Start Game
+            </button>
+          </div>
+
+          <div class="play-online-room-link-row" id="online-room-link-row">
+            <input
+              class="text-input play-online-room-link"
+              id="online-room-link"
+              type="text"
+              readonly
+              value=""
+            />
+            <button class="button button-secondary" id="copy-room-link-button" type="button">
+              Copy Link
+            </button>
+          </div>
+
+          <section class="play-online-feed-card">
+            <h2>Players</h2>
+            <ul class="play-online-room-roster" id="online-room-roster"></ul>
+          </section>
+        </section>
+
+        <section class="play-online-queue" id="online-queue" hidden>
+          <div class="play-online-spinner" aria-hidden="true"></div>
+          <div class="play-online-queue-copy">
+            <h2>Searching for another player...</h2>
+            <p>The match will start as soon as somebody else joins.</p>
+          </div>
+        </section>
+
+        <section class="play-online-match" id="online-match" hidden>
+          <div class="play-online-scoreboard" id="online-scoreboard"></div>
+
+          <div class="play-online-round-bar">
+            <span class="play-online-round-label" id="online-round-label">Round 1 of 3</span>
+            <span class="play-online-timer-label" id="online-timer-label">Waiting to start</span>
+          </div>
+
+          <div class="play-online-arena">
+            <div class="play-online-stage">
+              <div class="play-online-image-frame">
+                <div class="play-online-image-loading" id="online-image-loading">
+                  <div class="play-online-spinner" aria-hidden="true"></div>
+                  <p class="play-online-image-loading-copy" id="online-image-loading-copy">
+                    Waiting for round...
+                  </p>
+                </div>
+                <img id="online-game-image" alt="Current online duel round" />
+              </div>
+            </div>
+
+            <aside class="play-online-feed">
+              <section class="play-online-feed-card">
+                <h2>Round status</h2>
+                <p class="play-online-feed-copy" id="online-round-status">
+                  Match updates will appear here.
+                </p>
+              </section>
+
+              <section class="play-online-feed-card">
+                <h2>Your guesses</h2>
+                <ul class="play-online-guess-list" id="your-guess-list"></ul>
+              </section>
+
+              <section class="play-online-feed-card">
+                <h2>Room guesses</h2>
+                <ul class="play-online-guess-list" id="online-room-guess-list"></ul>
+              </section>
+
+              <section class="play-online-feed-card">
+                <h2>Rounds</h2>
+                <ul class="play-online-round-history" id="online-round-history"></ul>
+              </section>
+            </aside>
+          </div>
+
+          <form class="play-online-guess-form" id="online-guess-form" autocomplete="off">
+            <label class="field-group play-online-guess-field" for="online-guess-input">
+              <span class="field-label">Your guess</span>
+              <div class="autocomplete-shell play-online-autocomplete-shell">
+                <div class="autocomplete-ghost" aria-hidden="true">
+                  <span class="autocomplete-typed" id="online-ghost-typed"></span><span
+                    class="autocomplete-suffix"
+                    id="online-ghost-suffix"
+                  ></span>
+                </div>
+                <input
+                  class="text-input autocomplete-input"
+                  id="online-guess-input"
+                  name="guess"
+                  type="text"
+                  maxlength="80"
+                  placeholder="WatCard, Dana Porter, goose..."
+                  required
+                />
+              </div>
+            </label>
+            <button class="button button-primary" id="online-guess-button" type="submit">
+              Guess
+            </button>
+          </form>
+        </section>
+
+        <section class="play-online-summary" id="online-summary" hidden>
+          <div class="play-online-badge">Match over</div>
+          <h2 class="play-online-summary-title" id="online-summary-title">Match finished</h2>
+          <p class="play-online-summary-copy" id="online-summary-copy">
+            You can queue again whenever you want.
+          </p>
+          <div class="play-online-actions">
+            <button class="button button-primary" id="find-another-match-button" type="button">
+              Find Another Match
+            </button>
+            <a class="button button-secondary" href="/">Back Home</a>
+          </div>
+        </section>
       </section>
     </main>
+
+    <script type="module" src="/scripts/play-online.js"></script>
   </body>
 </html>

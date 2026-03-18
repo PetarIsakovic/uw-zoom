@@ -42,19 +42,19 @@
 
           <section
             class="landing-leaderboard"
-            id="upload-leaders-board"
-            aria-label="Upload leaders"
+            id="online-wins-board"
+            aria-label="Online wins"
             data-state="loading"
           >
-            <p class="landing-leaderboard-label">Upload leaders</p>
+            <p class="landing-leaderboard-label">Online wins</p>
             <div class="landing-leaderboard-loading" aria-hidden="true">
               <span class="landing-loading-row"></span>
               <span class="landing-loading-row"></span>
               <span class="landing-loading-row"></span>
             </div>
-            <ol class="landing-leaderboard-list" id="upload-count-list" hidden></ol>
-            <p class="landing-leaderboard-empty" id="upload-count-empty" hidden>
-              Waiting for upload names.
+            <ol class="landing-leaderboard-list" id="online-wins-list" hidden></ol>
+            <p class="landing-leaderboard-empty" id="online-wins-empty" hidden>
+              No online wins yet.
             </p>
           </section>
         </aside>
@@ -64,25 +64,144 @@
             <span class="wordmark-accent">UW</span>
             <span class="wordmark-fill">Zoom</span>
           </h1>
-          <div class="hero-actions">
-            <a class="button button-secondary" id="start-playing-link" href="/play/">
-              Play Locally
-            </a>
-            <a class="button button-primary" href="/play-online/">
-              Play Online
-            </a>
+          <div class="landing-setup-card">
+            <label class="field-group landing-name-field" for="landing-player-name">
+              <input
+                class="text-input landing-name-input"
+                id="landing-player-name"
+                name="playerName"
+                type="text"
+                maxlength="32"
+                placeholder="Type your name"
+                autocomplete="nickname"
+              />
+            </label>
+
+            <div class="landing-avatar-stage">
+              <div class="landing-avatar-preview-shell">
+                <button
+                  class="landing-avatar-randomize"
+                  id="landing-avatar-randomize"
+                  type="button"
+                  aria-label="Randomize character"
+                  title="Randomize character"
+                >
+                  <img src="/assets/randomize.gif" alt="" />
+                </button>
+                <div class="landing-avatar-control-pair landing-avatar-control-pair-extra">
+                  <button
+                    class="landing-avatar-arrow landing-avatar-arrow-mini"
+                    type="button"
+                    data-avatar-control="extra"
+                    data-avatar-step="-1"
+                    aria-label="Previous accessory"
+                  >
+                    &#8249;
+                  </button>
+                  <button
+                    class="landing-avatar-arrow landing-avatar-arrow-mini"
+                    type="button"
+                    data-avatar-control="extra"
+                    data-avatar-step="1"
+                    aria-label="Next accessory"
+                  >
+                    &#8250;
+                  </button>
+                </div>
+                <div class="landing-avatar-control-pair landing-avatar-control-pair-eyes">
+                  <button
+                    class="landing-avatar-arrow landing-avatar-arrow-mini"
+                    type="button"
+                    data-avatar-control="eyes"
+                    data-avatar-step="-1"
+                    aria-label="Previous eyes"
+                  >
+                    &#8249;
+                  </button>
+                  <button
+                    class="landing-avatar-arrow landing-avatar-arrow-mini"
+                    type="button"
+                    data-avatar-control="eyes"
+                    data-avatar-step="1"
+                    aria-label="Next eyes"
+                  >
+                    &#8250;
+                  </button>
+                </div>
+                <div class="landing-avatar-control-pair landing-avatar-control-pair-mouth">
+                  <button
+                    class="landing-avatar-arrow landing-avatar-arrow-mini"
+                    type="button"
+                    data-avatar-control="mouth"
+                    data-avatar-step="-1"
+                    aria-label="Previous mouth"
+                  >
+                    &#8249;
+                  </button>
+                  <button
+                    class="landing-avatar-arrow landing-avatar-arrow-mini"
+                    type="button"
+                    data-avatar-control="mouth"
+                    data-avatar-step="1"
+                    aria-label="Next mouth"
+                  >
+                    &#8250;
+                  </button>
+                </div>
+                <div class="landing-avatar-control-pair landing-avatar-control-pair-body">
+                  <button
+                    class="landing-avatar-arrow"
+                    type="button"
+                    data-avatar-control="body"
+                    data-avatar-step="-1"
+                    aria-label="Previous body"
+                  >
+                    &#8249;
+                  </button>
+                  <button
+                    class="landing-avatar-arrow"
+                    type="button"
+                    data-avatar-control="body"
+                    data-avatar-step="1"
+                    aria-label="Next body"
+                  >
+                    &#8250;
+                  </button>
+                </div>
+                <canvas
+                  class="landing-avatar-preview"
+                  id="landing-avatar-preview"
+                  width="224"
+                  height="224"
+                  aria-label="Selected avatar preview"
+                ></canvas>
+              </div>
+            </div>
+
+            <div class="hero-actions">
+              <a class="button button-primary" id="play-online-link" href="/play-online/">
+                Play!
+              </a>
+              <a
+                class="button button-secondary hero-private-room-button"
+                id="create-private-room-link"
+                href="/play-online/"
+              >
+                Create Private Room
+              </a>
+            </div>
+            <p class="hero-copy">
+              <a
+                class="hero-note-link"
+                href="https://github.com/PetarIsakovic/uw-zoom"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Star this GitHub project
+              </a>
+              before I have to keep the site alive with couch-cushion quarters.
+            </p>
           </div>
-          <p class="hero-copy">
-            <a
-              class="hero-note-link"
-              href="https://github.com/PetarIsakovic/uw-zoom"
-              target="_blank"
-              rel="noreferrer"
-            >
-              Star this GitHub project
-            </a>
-            before I have to keep the site alive with couch-cushion quarters.
-          </p>
         </section>
       </div>
     </main>
