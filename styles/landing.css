@@ -8,6 +8,10 @@
     linear-gradient(180deg, #fbf7ef 0%, #f8f3eb 100%);
 }
 
+.landing-shell--transitioning {
+  cursor: progress;
+}
+
 .landing-shell::before {
   content: "";
   position: fixed;
@@ -45,6 +49,11 @@
   padding: 0.45rem 1rem 0.65rem;
   position: relative;
   isolation: isolate;
+}
+
+.landing-shell--transitioning .site-header,
+.landing-shell--transitioning .landing-main {
+  animation: landing-page-exit 1120ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
 }
 
 .landing-main::before,
@@ -395,13 +404,13 @@
 }
 
 .landing-avatar-preview {
-  width: min(14.2rem, 100%);
+  width: min(15.5rem, 100%);
   height: auto;
   aspect-ratio: 1 / 1;
   display: block;
   image-rendering: pixelated;
   filter: drop-shadow(0 18px 20px rgba(17, 17, 17, 0.1));
-  transform: translate(0.12rem, 0.06rem);
+  transform: translateY(-0.02rem);
 }
 
 .landing-avatar-arrow {
@@ -594,6 +603,277 @@
   display: none;
 }
 
+.landing-goose-overlay {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 30;
+  opacity: 0;
+}
+
+.landing-goose {
+  position: absolute;
+  left: -8.5rem;
+  width: 2.9rem;
+  aspect-ratio: 24 / 16;
+  background: url("/assets/pixel-goose.svg") center / contain no-repeat;
+  image-rendering: pixelated;
+  opacity: 0;
+  transform: translate3d(0, 0, 0);
+  filter: drop-shadow(0 7px 14px rgba(17, 17, 17, 0.16));
+}
+
+.landing-shell--transitioning .landing-goose-overlay {
+  opacity: 1;
+}
+
+.landing-shell--transitioning .landing-goose {
+  animation: landing-goose-fly var(--duration, 900ms) linear forwards;
+  animation-delay: var(--delay, 0ms);
+}
+
+.landing-goose-1 {
+  top: 9%;
+  --scale: 0.76;
+  --delay: 0ms;
+  --duration: 920ms;
+  --drift-start: -12px;
+  --drift-end: 10px;
+  --tilt-start: -4deg;
+  --tilt-end: 3deg;
+}
+
+.landing-goose-2 {
+  top: 14%;
+  --scale: 0.94;
+  --delay: 34ms;
+  --duration: 980ms;
+  --drift-start: 12px;
+  --drift-end: -12px;
+  --tilt-start: 2deg;
+  --tilt-end: -3deg;
+}
+
+.landing-goose-3 {
+  top: 18%;
+  --scale: 1.08;
+  --delay: 62ms;
+  --duration: 960ms;
+  --drift-start: -4px;
+  --drift-end: 10px;
+  --tilt-start: -3deg;
+  --tilt-end: 4deg;
+}
+
+.landing-goose-4 {
+  top: 23%;
+  --scale: 0.84;
+  --delay: 18ms;
+  --duration: 1040ms;
+  --drift-start: 14px;
+  --drift-end: -8px;
+  --tilt-start: 4deg;
+  --tilt-end: -2deg;
+}
+
+.landing-goose-5 {
+  top: 28%;
+  --scale: 1.12;
+  --delay: 84ms;
+  --duration: 1000ms;
+  --drift-start: -14px;
+  --drift-end: 12px;
+  --tilt-start: -2deg;
+  --tilt-end: 4deg;
+}
+
+.landing-goose-6 {
+  top: 33%;
+  --scale: 0.9;
+  --delay: 46ms;
+  --duration: 920ms;
+  --drift-start: 10px;
+  --drift-end: -14px;
+  --tilt-start: 3deg;
+  --tilt-end: -4deg;
+}
+
+.landing-goose-7 {
+  top: 37%;
+  --scale: 0.72;
+  --delay: 110ms;
+  --duration: 1060ms;
+  --drift-start: -18px;
+  --drift-end: 8px;
+  --tilt-start: -5deg;
+  --tilt-end: 2deg;
+}
+
+.landing-goose-8 {
+  top: 42%;
+  --scale: 1;
+  --delay: 126ms;
+  --duration: 990ms;
+  --drift-start: 16px;
+  --drift-end: -10px;
+  --tilt-start: 4deg;
+  --tilt-end: -4deg;
+}
+
+.landing-goose-9 {
+  top: 47%;
+  --scale: 0.82;
+  --delay: 148ms;
+  --duration: 1080ms;
+  --drift-start: -8px;
+  --drift-end: 16px;
+  --tilt-start: -3deg;
+  --tilt-end: 5deg;
+}
+
+.landing-goose-10 {
+  top: 52%;
+  --scale: 1.18;
+  --delay: 92ms;
+  --duration: 1030ms;
+  --drift-start: 10px;
+  --drift-end: -16px;
+  --tilt-start: 2deg;
+  --tilt-end: -5deg;
+}
+
+.landing-goose-11 {
+  top: 57%;
+  --scale: 0.78;
+  --delay: 164ms;
+  --duration: 1100ms;
+  --drift-start: -12px;
+  --drift-end: 14px;
+  --tilt-start: -4deg;
+  --tilt-end: 3deg;
+}
+
+.landing-goose-12 {
+  top: 61%;
+  --scale: 0.96;
+  --delay: 182ms;
+  --duration: 1050ms;
+  --drift-start: 18px;
+  --drift-end: -8px;
+  --tilt-start: 5deg;
+  --tilt-end: -3deg;
+}
+
+.landing-goose-13 {
+  top: 66%;
+  --scale: 1.06;
+  --delay: 136ms;
+  --duration: 1000ms;
+  --drift-start: -10px;
+  --drift-end: 18px;
+  --tilt-start: -2deg;
+  --tilt-end: 4deg;
+}
+
+.landing-goose-14 {
+  top: 71%;
+  --scale: 0.74;
+  --delay: 206ms;
+  --duration: 1120ms;
+  --drift-start: 14px;
+  --drift-end: -12px;
+  --tilt-start: 4deg;
+  --tilt-end: -2deg;
+}
+
+.landing-goose-15 {
+  top: 76%;
+  --scale: 0.92;
+  --delay: 224ms;
+  --duration: 1080ms;
+  --drift-start: -16px;
+  --drift-end: 10px;
+  --tilt-start: -5deg;
+  --tilt-end: 2deg;
+}
+
+.landing-goose-16 {
+  top: 81%;
+  --scale: 1.14;
+  --delay: 190ms;
+  --duration: 1060ms;
+  --drift-start: 12px;
+  --drift-end: -18px;
+  --tilt-start: 3deg;
+  --tilt-end: -4deg;
+}
+
+.landing-goose-17 {
+  top: 86%;
+  --scale: 0.8;
+  --delay: 246ms;
+  --duration: 1140ms;
+  --drift-start: -14px;
+  --drift-end: 12px;
+  --tilt-start: -4deg;
+  --tilt-end: 4deg;
+}
+
+.landing-goose-18 {
+  top: 91%;
+  --scale: 0.7;
+  --delay: 268ms;
+  --duration: 1160ms;
+  --drift-start: 10px;
+  --drift-end: -10px;
+  --tilt-start: 4deg;
+  --tilt-end: -3deg;
+}
+
+@keyframes landing-page-exit {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.985);
+    filter: blur(2px);
+  }
+}
+
+@keyframes landing-goose-fly {
+  0% {
+    opacity: 0;
+    transform:
+      translate3d(-12vw, var(--drift-start, 0px), 0)
+      scale(var(--scale, 1))
+      rotate(var(--tilt-start, 0deg));
+  }
+
+  10% {
+    opacity: 1;
+  }
+
+  45% {
+    transform:
+      translate3d(45vw, calc(var(--drift-start, 0px) * 0.35), 0)
+      scale(var(--scale, 1))
+      rotate(calc((var(--tilt-start, 0deg) + var(--tilt-end, 0deg)) / 2));
+  }
+
+  100% {
+    opacity: 1;
+    transform:
+      translate3d(118vw, var(--drift-end, 0px), 0)
+      scale(var(--scale, 1))
+      rotate(var(--tilt-end, 0deg));
+  }
+}
+
 @keyframes landing-contour-zoom {
   0% {
     transform: scale(1);
@@ -678,6 +958,12 @@
   }
 
   .landing-loading-row {
+    animation: none;
+  }
+
+  .landing-shell--transitioning .site-header,
+  .landing-shell--transitioning .landing-main,
+  .landing-shell--transitioning .landing-goose {
     animation: none;
   }
 }

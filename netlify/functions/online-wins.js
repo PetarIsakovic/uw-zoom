@@ -1,9 +1,6 @@
 import { handleOptions, ensureMethod, json, withErrorHandling } from "./_lib/http.js";
-import { normalizeAvatarSelection } from "./_lib/avatar-selection.js";
-import { censorProfanity } from "./_lib/censor.js";
-import { getJson, storageConfigured } from "./_lib/storage.js";
-
-const ONLINE_WINS_KEY = "app/online-duel/wins.json";
+import { loadOnlineWinLeaders } from "./_lib/online-wins.js";
+import { storageConfigured } from "./_lib/storage.js";
 
 export const handler = withErrorHandling(async (event) => {
   const preflight = handleOptions(event, ["GET", "OPTIONS"]);
@@ -21,13 +18,10 @@ export const handler = withErrorHandling(async (event) => {
     });
   }
 
-  const payload = await getJson(ONLINE_WINS_KEY);
-  const leaders = Array.isArray(payload?.leaders) ? payload.leaders : [];
-
   return json(
     200,
     {
-      leaders: normalizeLeaders(leaders),
+      leaders: (await loadOnlineWinLeaders()).slice(0, 25),
       source: "storage",
     },
     {
@@ -35,24 +29,3 @@ export const handler = withErrorHandling(async (event) => {
     },
   );
 });
-
-function normalizeLeaders(entries) {
-  return entries
-    .map((entry) => ({
-      name: normalizeName(entry?.name),
-      avatar: normalizeAvatarSelection(entry?.avatar),
-      wins: normalizeWins(entry?.wins),
-    }))
-    .filter((entry) => entry.name)
-    .sort((left, right) => right.wins - left.wins || left.name.localeCompare(right.name))
-    .slice(0, 25);
-}
-
-function normalizeName(value) {
-  return censorProfanity(value, { maxLength: 32 });
-}
-
-function normalizeWins(value) {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
-}

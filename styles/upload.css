@@ -197,13 +197,20 @@
 }
 
 .review-section-head h2,
+.review-section-head h3,
 .review-section-head p {
   margin: 0;
 }
 
-.review-section-head h2 {
+.review-section-head h2,
+.review-section-head h3 {
   font-size: 1.1rem;
   letter-spacing: -0.03em;
+}
+
+.review-subsection {
+  display: grid;
+  gap: 0.75rem;
 }
 
 .review-section-head p,
@@ -274,6 +281,118 @@
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
+}
+
+.review-stats-grid,
+.review-room-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.review-stats-grid {
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+}
+
+.review-stat-card {
+  gap: 0.35rem;
+}
+
+.review-stat-label {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.review-stat-value {
+  font-size: clamp(1.7rem, 4vw, 2.2rem);
+  letter-spacing: -0.05em;
+  line-height: 1;
+}
+
+.review-card-room {
+  gap: 1rem;
+}
+
+.review-room-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.9rem;
+}
+
+.review-room-copy {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.review-room-copy h3,
+.review-room-copy p {
+  margin: 0;
+}
+
+.review-room-copy p {
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.review-room-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: start;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.review-inline-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.28rem 0.58rem;
+  border-radius: 999px;
+  background: rgba(17, 17, 17, 0.08);
+  color: var(--ink);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.review-online-queue,
+.review-online-player-list {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.review-online-player-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.75rem 0.8rem;
+  border-radius: calc(var(--radius-lg) - 8px);
+  background: rgba(255, 255, 255, 0.56);
+}
+
+.review-online-player-copy {
+  display: grid;
+  gap: 0.16rem;
+}
+
+.review-online-player-copy span,
+.review-online-player-row > span {
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.review-online-player-meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.45rem;
 }
 
 .review-card-editor .review-actions {

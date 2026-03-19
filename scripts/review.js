@@ -3,6 +3,7 @@ import { formatDate, requestJson, setStatus } from "/scripts/shared.js";
 const adminKeyInput = document.querySelector("#admin-key");
 const loadPendingButton = document.querySelector("#load-pending");
 const reviewStatus = document.querySelector("#review-status");
+const onlineStatsList = document.querySelector("#online-stats-list");
 const pendingList = document.querySelector("#pending-list");
 const leaderboardAdminList = document.querySelector("#leaderboard-admin-list");
 const approvedImageList = document.querySelector("#approved-image-list");
@@ -94,20 +95,30 @@ leaderboardAdminList?.addEventListener("click", async (event) => {
   }
 
   const entryId = button.dataset.entryId || "";
+  const entryType = button.dataset.entryType || "streak";
 
   try {
     button.disabled = true;
-    setStatus(reviewStatus, "Deleting leaderboard entry...", "default");
+    setStatus(
+      reviewStatus,
+      entryType === "online-win" ? "Deleting online wins entry..." : "Deleting leaderboard entry...",
+      "default",
+    );
 
     await requestJson("/api/admin-leaderboard", {
       method: "POST",
       headers: adminHeaders(),
       body: {
         id: entryId,
+        type: entryType,
       },
     });
 
-    setStatus(reviewStatus, "Leaderboard entry deleted.", "success");
+    setStatus(
+      reviewStatus,
+      entryType === "online-win" ? "Online wins entry deleted." : "Leaderboard entry deleted.",
+      "success",
+    );
     await loadAdminData();
   } catch (error) {
     setStatus(reviewStatus, error.message, "error");
@@ -205,12 +216,16 @@ bannedIpList?.addEventListener("click", async (event) => {
 async function loadAdminData() {
   try {
     setStatus(reviewStatus, "Loading admin data...", "default");
+    clearList(onlineStatsList);
     clearList(pendingList);
     clearList(leaderboardAdminList);
     clearList(approvedImageList);
     clearList(bannedIpList);
 
-    const [pendingPayload, leaderboardPayload, approvedPayload, bansPayload] = await Promise.all([
+    const [statsPayload, pendingPayload, leaderboardPayload, approvedPayload, bansPayload] = await Promise.all([
+      requestJson("/api/admin-online-stats", {
+        headers: adminHeaders(),
+      }),
       requestJson("/api/admin-submissions", {
         headers: adminHeaders(),
       }),
@@ -225,18 +240,160 @@ async function loadAdminData() {
       }),
     ]);
 
+    renderOnlineStats(statsPayload);
     renderPending(pendingPayload.submissions || []);
-    renderLeaderboardEntries(leaderboardPayload.entries || []);
+    renderLeaderboardEntries({
+      streaks: leaderboardPayload.entries || [],
+      onlineWins: leaderboardPayload.onlineWins || [],
+    });
     renderApprovedImages(approvedPayload.images || []);
     renderBannedIps(bansPayload.bans || []);
     setStatus(reviewStatus, "Review unlocked.", "success");
   } catch (error) {
+    renderOnlineStats(null);
     renderPending([]);
-    renderLeaderboardEntries([]);
+    renderLeaderboardEntries({ streaks: [], onlineWins: [] });
     renderApprovedImages([]);
     renderBannedIps([]);
     setStatus(reviewStatus, error.message, "error");
   }
+}
+
+function renderOnlineStats(payload) {
+  if (!onlineStatsList) {
+    return;
+  }
+
+  onlineStatsList.innerHTML = "";
+
+  if (!payload || !payload.totals) {
+    renderEmptyState(onlineStatsList, "Online game stats are unavailable right now.");
+    return;
+  }
+
+  const summaryGrid = document.createElement("div");
+  summaryGrid.className = "review-stats-grid";
+
+  const summaryItems = [
+    ["Total games played", String(payload.totals.totalGamesPlayed || 0)],
+    ["Active games", String(payload.totals.activeGames || 0)],
+    ["Queued players", String(payload.totals.queuedPlayers || 0)],
+    ["Waiting in lobbies", String(payload.totals.waitingLobbyPlayers || 0)],
+    ["Players in active games", String(payload.totals.playersInActiveGames || 0)],
+    ["Live games", String(payload.totals.liveGames || 0)],
+  ];
+
+  for (const [label, value] of summaryItems) {
+    const card = document.createElement("article");
+    card.className = "review-card review-stat-card";
+    card.innerHTML = `
+      <p class="review-stat-label">${escapeHtml(label)}</p>
+      <strong class="review-stat-value">${escapeHtml(value)}</strong>
+    `;
+    summaryGrid.append(card);
+  }
+
+  onlineStatsList.append(summaryGrid);
+
+  const queueCard = document.createElement("article");
+  queueCard.className = "review-card";
+  queueCard.innerHTML = `
+    <div class="review-section-head">
+      <h3>Public queue</h3>
+      <p>${escapeHtml(String(payload.queue?.length || 0))} player${payload.queue?.length === 1 ? "" : "s"} waiting to be assigned.</p>
+    </div>
+  `;
+
+  const queueBody = document.createElement("div");
+  queueBody.className = "review-online-queue";
+
+  if (!payload.queue?.length) {
+    const empty = document.createElement("p");
+    empty.className = "review-empty";
+    empty.textContent = "Nobody is waiting in the public queue.";
+    queueBody.append(empty);
+  } else {
+    const queueList = document.createElement("div");
+    queueList.className = "review-online-player-list";
+
+    for (const player of payload.queue) {
+      const item = document.createElement("div");
+      item.className = "review-online-player-row";
+      item.innerHTML = `
+        <strong>${escapeHtml(player.name || "Anonymous")}</strong>
+        <span>${escapeHtml(formatDate(player.joinedAt))}</span>
+      `;
+      queueList.append(item);
+    }
+
+    queueBody.append(queueList);
+  }
+
+  queueCard.append(queueBody);
+  onlineStatsList.append(queueCard);
+
+  if (!payload.rooms?.length) {
+    renderEmptyState(onlineStatsList, "No active rooms right now.");
+    return;
+  }
+
+  const roomsGrid = document.createElement("div");
+  roomsGrid.className = "review-room-grid";
+
+  for (const room of payload.rooms) {
+    const roomCard = document.createElement("article");
+    roomCard.className = "review-card review-card-room";
+
+    const playerRows = (room.players || [])
+      .map((player) => {
+        const badges = [
+          player.isHost ? '<span class="review-inline-badge">Host</span>' : "",
+          room.status === "live"
+            ? `<span class="review-inline-badge">Score ${escapeHtml(String(player.score || 0))}</span>`
+            : "",
+        ]
+          .filter(Boolean)
+          .join("");
+
+        return `
+          <div class="review-online-player-row">
+            <div class="review-online-player-copy">
+              <strong>${escapeHtml(player.name || "Anonymous")}</strong>
+              <span>Joined ${escapeHtml(formatDate(player.joinedAt))}</span>
+            </div>
+            <div class="review-online-player-meta">${badges}</div>
+          </div>
+        `;
+      })
+      .join("");
+
+    roomCard.innerHTML = `
+      <div class="review-room-head">
+        <div class="review-room-copy">
+          <h3>${escapeHtml(room.type === "private" ? "Private room" : "Public room")}</h3>
+          <p>
+            <strong>Status:</strong> ${escapeHtml(room.status)}<br />
+            <strong>Players:</strong> ${escapeHtml(String(room.playerCount || 0))}/${escapeHtml(String(room.maxPlayers || 0))}<br />
+            <strong>Host:</strong> ${escapeHtml(room.hostName || "Unknown")}<br />
+            <strong>Created:</strong> ${escapeHtml(formatDate(room.createdAt))}
+          </p>
+        </div>
+        <div class="review-room-meta">
+          <span class="review-inline-badge">Room ${escapeHtml(room.id)}</span>
+          ${
+            room.status === "waiting"
+              ? `<span class="review-inline-badge">Starts ${room.lobbyStartsAt ? escapeHtml(formatDate(room.lobbyStartsAt)) : "when ready"}</span>`
+              : `<span class="review-inline-badge">Round ${escapeHtml(String(room.roundIndex || 0))}/${escapeHtml(String(room.roundCount || 0))}</span>`
+          }
+        </div>
+      </div>
+      <div class="review-online-player-list">${playerRows}</div>
+    `;
+
+    roomsGrid.append(roomCard);
+  }
+
+  onlineStatsList.append(roomsGrid);
 }
 
 function renderPending(submissions) {
@@ -285,39 +442,86 @@ function renderPending(submissions) {
   }
 }
 
-function renderLeaderboardEntries(entries) {
+function renderLeaderboardEntries(payload) {
   if (!leaderboardAdminList) {
     return;
   }
 
   leaderboardAdminList.innerHTML = "";
 
-  if (!entries.length) {
+  const streaks = Array.isArray(payload?.streaks) ? payload.streaks : [];
+  const onlineWins = Array.isArray(payload?.onlineWins) ? payload.onlineWins : [];
+
+  if (!streaks.length && !onlineWins.length) {
     renderEmptyState(leaderboardAdminList, "No leaderboard entries yet.");
+    return;
+  }
+
+  appendLeaderboardGroup({
+    container: leaderboardAdminList,
+    heading: "Top streaks",
+    emptyMessage: "No streak runs yet.",
+    entries: streaks,
+    renderCard(entry) {
+      return `
+        <div class="review-copy">
+          <h3>${escapeHtml(entry.name || "Anonymous")}</h3>
+          <p><strong>Score:</strong> ${escapeHtml(String(entry.score || 0))} in a row</p>
+          <p><strong>Time:</strong> ${escapeHtml(formatDuration(entry.durationMs))}</p>
+          <p><strong>Played:</strong> ${escapeHtml(formatDate(entry.playedAt))}</p>
+          <p><strong>Result:</strong> ${escapeHtml(entry.result === "win" ? "Win" : "Loss")}</p>
+          <p><strong>IP:</strong> ${escapeHtml(entry.ip || "Unknown")}</p>
+        </div>
+        <div class="review-actions">
+          <button class="button button-secondary" data-entry-id="${escapeHtml(entry.id)}" data-entry-type="streak" type="button">Delete entry</button>
+          ${buildBanButtonMarkup(entry.ip, entry.name, "leaderboard")}
+        </div>
+      `;
+    },
+  });
+
+  appendLeaderboardGroup({
+    container: leaderboardAdminList,
+    heading: "Online wins",
+    emptyMessage: "No online wins yet.",
+    entries: onlineWins,
+    renderCard(entry) {
+      return `
+        <div class="review-copy">
+          <h3>${escapeHtml(entry.name || "Anonymous")}</h3>
+          <p><strong>Wins:</strong> ${escapeHtml(String(entry.wins || 0))}</p>
+        </div>
+        <div class="review-actions">
+          <button class="button button-secondary" data-entry-id="${escapeHtml(entry.id)}" data-entry-type="online-win" type="button">Delete entry</button>
+        </div>
+      `;
+    },
+  });
+}
+
+function appendLeaderboardGroup({ container, heading, emptyMessage, entries, renderCard }) {
+  const group = document.createElement("section");
+  group.className = "review-subsection";
+
+  const head = document.createElement("div");
+  head.className = "review-section-head";
+  head.innerHTML = `<h3>${escapeHtml(heading)}</h3>`;
+  group.append(head);
+
+  if (!entries.length) {
+    renderEmptyState(group, emptyMessage);
+    container.append(group);
     return;
   }
 
   for (const entry of entries) {
     const card = document.createElement("article");
     card.className = "review-card review-card-compact";
-
-    card.innerHTML = `
-      <div class="review-copy">
-        <h3>${escapeHtml(entry.name || "Anonymous")}</h3>
-        <p><strong>Score:</strong> ${escapeHtml(String(entry.score || 0))} in a row</p>
-        <p><strong>Time:</strong> ${escapeHtml(formatDuration(entry.durationMs))}</p>
-        <p><strong>Played:</strong> ${escapeHtml(formatDate(entry.playedAt))}</p>
-        <p><strong>Result:</strong> ${escapeHtml(entry.result === "win" ? "Win" : "Loss")}</p>
-        <p><strong>IP:</strong> ${escapeHtml(entry.ip || "Unknown")}</p>
-      </div>
-      <div class="review-actions">
-        <button class="button button-secondary" data-entry-id="${escapeHtml(entry.id)}" type="button">Delete entry</button>
-        ${buildBanButtonMarkup(entry.ip, entry.name, "leaderboard")}
-      </div>
-    `;
-
-    leaderboardAdminList.append(card);
+    card.innerHTML = renderCard(entry);
+    group.append(card);
   }
+
+  container.append(group);
 }
 
 function renderApprovedImages(images) {

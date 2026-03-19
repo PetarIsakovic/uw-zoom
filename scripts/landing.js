@@ -5,7 +5,7 @@ import {
   readAvatarSelectionFromSearchParams,
   writeAvatarSelectionToSearchParams,
 } from "/shared/avatar-selection.js";
-import { censorProfanity, requestJson } from "/scripts/shared.js";
+import { censorProfanity, flushPendingOnlineLeave, requestJson } from "/scripts/shared.js";
 
 const leaderboardList = document.querySelector("#landing-leaderboard-list");
 const leaderboardEmpty = document.querySelector("#landing-leaderboard-empty");
@@ -27,7 +27,7 @@ const BODY_FRAME_SIZE = 48;
 const FEATURE_FRAME_SIZE = 48;
 const ACCESSORY_FRAME_SIZE = 80;
 const COMPOSITE_FRAME_SIZE = 80;
-const AVATAR_PREVIEW_SCALE = 2;
+const AVATAR_PREVIEW_SCALE = 2.35;
 const AVATAR_ANIMATION_INTERVAL_MS = 200;
 const BODY_OFFSET_X = 16;
 const BODY_OFFSET_Y = 18;
@@ -103,6 +103,7 @@ const GUEST_NAME_MIN = 100000;
 const GUEST_NAME_MAX = 999999;
 
 setupLandingSetup();
+void flushPendingOnlineLeave();
 renderLandingLeaderboard();
 renderOnlineWins();
 setupPlayStartWarmup();
@@ -111,6 +112,7 @@ function setupLandingSetup() {
   const params = new URLSearchParams(window.location.search);
   const savedPreferences = loadLandingPreferences();
   const savedAvatarSelection = savedPreferences?.avatar || null;
+  const savedPlayerName = savedPreferences?.name || "";
   const selectedAvatarFromUrl = hasAvatarSelectionInSearchParams(params)
     ? readAvatarSelectionFromSearchParams(params)
     : null;
@@ -124,7 +126,8 @@ function setupLandingSetup() {
   }
 
   if (landingPlayerNameInput) {
-    landingPlayerNameInput.value = normalizePlayerName(params.get("name") || "");
+    const urlPlayerName = normalizePlayerName(params.get("name") || "");
+    landingPlayerNameInput.value = urlPlayerName || savedPlayerName;
     landingPlayerNameInput.addEventListener("input", syncPlayLinks);
   }
 
@@ -984,6 +987,10 @@ function createGuestName() {
   return `guest_${randomNumber}`;
 }
 
+function isGeneratedGuestName(value) {
+  return /^guest_\d+$/iu.test(String(value || "").trim());
+}
+
 function hasAvatarSelectionInSearchParams(params) {
   return Object.values(AVATAR_QUERY_KEYS).some((key) => params.has(key));
 }
@@ -1004,6 +1011,7 @@ function loadLandingPreferences() {
     }
 
     return {
+      name: normalizeStoredPlayerName(parsedValue?.name),
       avatar: hasAvatarSelectionInSearchParams(params)
         ? readAvatarSelectionFromSearchParams(params)
         : null,
@@ -1015,9 +1023,11 @@ function loadLandingPreferences() {
 
 function saveLandingPreferences() {
   try {
+    const normalizedName = normalizeStoredPlayerName(landingPlayerNameInput?.value || "");
     window.localStorage.setItem(
       LANDING_PREFERENCES_STORAGE_KEY,
       JSON.stringify({
+        ...(normalizedName ? { name: normalizedName } : {}),
         avatar: {
           body: avatarState.bodyIndex,
           eyes: avatarState.eyesIndex,
@@ -1029,6 +1039,16 @@ function saveLandingPreferences() {
   } catch {
     // Ignore storage failures so the start screen still works normally.
   }
+}
+
+function normalizeStoredPlayerName(value) {
+  const normalizedName = normalizePlayerName(value);
+
+  if (!normalizedName || isGeneratedGuestName(normalizedName)) {
+    return "";
+  }
+
+  return normalizedName;
 }
 
 function wrapIndex(index, length) {

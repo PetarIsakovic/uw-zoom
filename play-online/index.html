@@ -8,6 +8,19 @@
       name="description"
       content="Race another player on the same zoomed-in image in UW Zoom online duel mode."
     />
+    <script>
+      (() => {
+        const params = new URLSearchParams(window.location.search);
+        const shouldSkipIntro =
+          params.get("autoplay") === "1" ||
+          (params.get("playerId") && params.get("token")) ||
+          Boolean(params.get("room"));
+
+        if (shouldSkipIntro) {
+          document.documentElement.classList.add("play-online-skip-intro");
+        }
+      })();
+    </script>
     <link rel="icon" href="/University_of_Waterloo_seal.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="/styles/global.css" />
     <link rel="stylesheet" href="/styles/play-online.css" />
@@ -22,7 +35,7 @@
 
     <main class="play-online-layout">
       <section class="panel play-online-panel">
-        <div class="play-online-hero">
+        <div class="play-online-hero" id="online-hero">
           <div>
             <p class="eyebrow">Online Duel</p>
             <h1 class="panel-title">Same image. Same timer. First correct guess wins.</h1>
@@ -110,8 +123,8 @@
         <section class="play-online-queue" id="online-queue" hidden>
           <div class="play-online-spinner" aria-hidden="true"></div>
           <div class="play-online-queue-copy">
-            <h2>Searching for another player...</h2>
-            <p>The match will start as soon as somebody else joins.</p>
+            <h2 id="online-queue-title">Finding a match...</h2>
+            <p id="online-queue-copy">Looking for another player right now.</p>
           </div>
         </section>
 

@@ -1,5 +1,11 @@
 import { ensureAvatarIconAssets, drawAvatarIcon } from "/scripts/avatar-icon.js";
-import { censorProfanity, requestJson, setStatus } from "/scripts/shared.js";
+import {
+  censorProfanity,
+  clearPendingOnlineLeave,
+  requestJson,
+  setStatus,
+  stashPendingOnlineLeave,
+} from "/scripts/shared.js";
 import { readAvatarSelectionFromSearchParams } from "/shared/avatar-selection.js";
 import { searchInWordBank } from "/shared/word-bank.js";
 
@@ -8,6 +14,8 @@ const playerNameInput = document.querySelector("#online-player-name");
 const joinMatchButton = document.querySelector("#join-match-button");
 const createPrivateRoomButton = document.querySelector("#create-private-room-button");
 const leaveMatchButton = document.querySelector("#leave-match-button");
+const heroSection = document.querySelector("#online-hero");
+const joinSection = document.querySelector("#online-join");
 const onlineStatus = document.querySelector("#online-status");
 const lobbySection = document.querySelector("#online-lobby");
 const roomTitle = document.querySelector("#online-room-title");
@@ -18,6 +26,8 @@ const roomLinkRow = document.querySelector("#online-room-link-row");
 const startRoomButton = document.querySelector("#start-room-button");
 const roomRoster = document.querySelector("#online-room-roster");
 const queueSection = document.querySelector("#online-queue");
+const queueTitle = document.querySelector("#online-queue-title");
+const queueCopy = document.querySelector("#online-queue-copy");
 const matchSection = document.querySelector("#online-match");
 const summarySection = document.querySelector("#online-summary");
 const scoreboard = document.querySelector("#online-scoreboard");
@@ -61,18 +71,32 @@ const state = {
   latestPayload: null,
   currentImageUrl: "",
   inlineSuggestion: "",
+  exitCleanupSent: false,
+  waitingForFirstImageReveal: false,
+  hasRevealedLiveMatch: false,
 };
 
 bootstrap();
 
 window.addEventListener("pagehide", () => {
-  notifyServerAboutExit();
+  leaveSessionOnExit();
+});
+
+window.addEventListener("beforeunload", () => {
+  leaveSessionOnExit();
 });
 
 window.addEventListener("pageshow", (event) => {
-  if (event.persisted && hasActiveSession()) {
-    void refreshState();
+  if (!event.persisted) {
+    return;
   }
+
+  if (hasActiveSession()) {
+    void refreshState();
+    return;
+  }
+
+  renderIdle();
 });
 
 entryForm?.addEventListener("submit", async (event) => {
@@ -224,6 +248,8 @@ async function joinMatch() {
 
   try {
     setBusy(true);
+    state.exitCleanupSent = false;
+    clearPendingOnlineLeave();
     setStatus(
       onlineStatus,
       state.requestedRoomId ? "Joining private room..." : "Finding another player...",
@@ -260,6 +286,8 @@ async function createPrivateRoom() {
 
   try {
     setBusy(true);
+    state.exitCleanupSent = false;
+    clearPendingOnlineLeave();
     setStatus(onlineStatus, "Creating your private room...", "default");
 
     const payload = await requestJson("/api/online-duel-create-room", {
@@ -383,6 +411,7 @@ async function leaveCurrentSession() {
   } catch {
     // Best effort. We still clear the local session so the page can recover.
   } finally {
+    clearPendingOnlineLeave();
     clearSession();
     setBusy(false);
     renderIdle();
@@ -390,6 +419,7 @@ async function leaveCurrentSession() {
 }
 
 function renderPayload(payload) {
+  clearInitialIntroSkip();
   state.latestPayload = payload;
 
   if (payload.room?.you?.name) {
@@ -436,10 +466,13 @@ function renderPayload(payload) {
 }
 
 function renderIdle(options = {}) {
+  clearInitialIntroSkip();
   const { preserveStatus = false } = options;
   state.latestPayload = null;
   clearPoll();
   clearRoomTicker();
+  heroSection.hidden = false;
+  joinSection.hidden = false;
   lobbySection.hidden = true;
   queueSection.hidden = true;
   matchSection.hidden = true;
@@ -470,65 +503,74 @@ function renderIdle(options = {}) {
 
 function renderQueued() {
   clearRoomTicker();
+  heroSection.hidden = true;
+  joinSection.hidden = true;
   lobbySection.hidden = true;
   queueSection.hidden = false;
   matchSection.hidden = true;
   summarySection.hidden = true;
-  leaveMatchButton.hidden = false;
-  leaveMatchButton.textContent = "Leave Queue";
+  leaveMatchButton.hidden = true;
   joinMatchButton.hidden = true;
   createPrivateRoomButton.hidden = true;
   startRoomButton.hidden = true;
   playerNameInput.disabled = true;
-  setStatus(onlineStatus, "Searching for another player...", "default");
+  state.waitingForFirstImageReveal = false;
+  state.hasRevealedLiveMatch = false;
+  updateQueueCopy("Finding a match...", "Looking for another player right now.");
 }
 
 function renderWaitingRoom(room) {
+  if (room?.type !== "private") {
+    renderPublicWaitingRoom(room);
+    return;
+  }
+
+  heroSection.hidden = true;
+  joinSection.hidden = true;
   queueSection.hidden = true;
   lobbySection.hidden = false;
   matchSection.hidden = true;
   summarySection.hidden = true;
-  leaveMatchButton.hidden = false;
-  leaveMatchButton.textContent = room?.type === "private" ? "Leave Room" : "Leave Lobby";
+  leaveMatchButton.hidden = true;
   joinMatchButton.hidden = true;
   createPrivateRoomButton.hidden = true;
   playerNameInput.disabled = true;
   roomLinkRow.hidden = room?.type !== "private";
   startRoomButton.hidden = room?.type !== "private" || !room?.isHost;
   startRoomButton.disabled = !room?.canStart;
+  state.waitingForFirstImageReveal = false;
+  state.hasRevealedLiveMatch = false;
 
-  if (room?.type === "private") {
-    roomTitle.textContent = room?.isHost ? "Your private room" : `${room?.hostName || "Private"} room`;
-    roomCopy.textContent = room?.canStart
-      ? "Everyone is here. Start the game whenever you want."
-      : room?.isHost
-        ? `Share the link below. Up to ${room?.maxPlayers || 8} players can join.`
-        : `Waiting for ${room?.hostName || "the host"} to start the game.`;
+  roomTitle.textContent = room?.isHost ? "Your private room" : `${room?.hostName || "Private"} room`;
+  roomCopy.textContent = room?.canStart
+    ? "Everyone is here. Start the game whenever you want."
+    : room?.isHost
+      ? `Share the link below. Up to ${room?.maxPlayers || 8} players can join.`
+      : `Waiting for ${room?.hostName || "the host"} to start the game.`;
 
-    populateRoomLink(room?.shareUrl || "");
-    setStatus(
-      onlineStatus,
-      room?.isHost
-        ? "Invite players with the room link, then click Start Game."
-        : `Joined ${room?.hostName || "the host"}'s private room.`,
-      "default",
-    );
-  } else {
-    populateRoomLink("");
-    updateWaitingRoomSnapshot(room);
-  }
+  populateRoomLink(room?.shareUrl || "");
+  setStatus(
+    onlineStatus,
+    room?.isHost
+      ? "Invite players with the room link, then click Start Game."
+      : `Joined ${room?.hostName || "the host"}'s private room.`,
+    "default",
+  );
 
   renderRoomRoster(room?.players || [], room?.hostId || "");
   startRoomTicker();
 }
 
 function renderLive(room) {
+  const showSingleLoadingScreen = !state.hasRevealedLiveMatch && shouldHoldLiveReveal(room);
+
+  heroSection.hidden = true;
+  joinSection.hidden = true;
   lobbySection.hidden = true;
-  queueSection.hidden = true;
-  matchSection.hidden = false;
+  queueSection.hidden = !showSingleLoadingScreen;
+  matchSection.hidden = showSingleLoadingScreen;
   summarySection.hidden = true;
-  leaveMatchButton.hidden = false;
-  leaveMatchButton.textContent = "Forfeit Match";
+  leaveMatchButton.hidden = true;
   joinMatchButton.hidden = true;
   createPrivateRoomButton.hidden = true;
   startRoomButton.hidden = true;
@@ -543,10 +585,16 @@ function renderLive(room) {
     "default",
   );
   renderRoom(room);
+  syncLiveScreen(room);
+  if (!showSingleLoadingScreen) {
+    state.hasRevealedLiveMatch = true;
+  }
   startRoomTicker();
 }
 
 function renderFinished(room) {
+  heroSection.hidden = true;
+  joinSection.hidden = true;
   lobbySection.hidden = true;
   queueSection.hidden = true;
   matchSection.hidden = false;
@@ -556,6 +604,8 @@ function renderFinished(room) {
   createPrivateRoomButton.hidden = false;
   startRoomButton.hidden = true;
   playerNameInput.disabled = false;
+  state.waitingForFirstImageReveal = false;
+  state.hasRevealedLiveMatch = false;
   setStatus(onlineStatus, "Match finished.", "default");
   renderRoom(room);
   updateSummary(room);
@@ -589,6 +639,10 @@ function updateRoomSnapshot(room = state.latestPayload?.room) {
   roundStatus.textContent = snapshot.statusText;
   updateImageStage(room.currentRound, snapshot.zoomScale, snapshot.overlayText);
   updateGuessFormAvailability(snapshot);
+
+  if (room.status === "live") {
+    syncLiveScreen(room, snapshot);
+  }
 }
 
 function updateWaitingRoomSnapshot(room = state.latestPayload?.room) {
@@ -603,19 +657,21 @@ function updateWaitingRoomSnapshot(room = state.latestPayload?.room) {
   const startsInMs = resolveWaitingCountdownMs(room);
   const startsInSeconds = Math.max(1, Math.ceil(startsInMs / 1000));
 
-  roomTitle.textContent = "Public room";
-
   if (room.playerCount < 2) {
-    roomCopy.textContent =
-      "Waiting for one more player. The 10-second start timer begins as soon as player two joins.";
+    updateQueueCopy(
+      "Finding a match...",
+      "Waiting for one more player. The 10-second start timer begins as soon as player two joins.",
+    );
     setStatus(onlineStatus, "Waiting for another player to kick off the room.", "default");
     return;
   }
 
-  roomCopy.textContent =
+  updateQueueCopy(
+    "Match found",
     room.playerCount >= room.maxPlayers
       ? `Room full. Starting in ${startsInSeconds}s.`
-      : `Starting in ${startsInSeconds}s. Anyone else who joins before then is added to this room, up to ${room.maxPlayers}.`;
+      : `Starting in ${startsInSeconds}s. Anyone else who joins before then is added to this room, up to ${room.maxPlayers}.`,
+  );
   setStatus(
     onlineStatus,
     `Public room filling up: ${room.playerCount}/${room.maxPlayers} players. Starts in ${startsInSeconds}s.`,
@@ -750,6 +806,7 @@ function resetImageStage() {
 
 gameImage?.addEventListener("load", () => {
   hideImageLoading();
+  maybeRevealLiveMatch();
 });
 
 gameImage?.addEventListener("error", () => {
@@ -764,6 +821,88 @@ function showImageLoading(message) {
 
 function hideImageLoading() {
   imageLoading.hidden = true;
+}
+
+function renderPublicWaitingRoom(room) {
+  clearRoomTicker();
+  heroSection.hidden = true;
+  joinSection.hidden = true;
+  lobbySection.hidden = true;
+  queueSection.hidden = false;
+  matchSection.hidden = true;
+  summarySection.hidden = true;
+  leaveMatchButton.hidden = true;
+  joinMatchButton.hidden = true;
+  createPrivateRoomButton.hidden = true;
+  startRoomButton.hidden = true;
+  playerNameInput.disabled = true;
+  state.waitingForFirstImageReveal = false;
+  state.hasRevealedLiveMatch = false;
+  populateRoomLink("");
+  updateWaitingRoomSnapshot(room);
+  startRoomTicker();
+}
+
+function shouldHoldLiveReveal(room) {
+  const currentRound = room?.currentRound;
+
+  if (!currentRound?.imageUrl) {
+    return true;
+  }
+
+  return !(
+    state.currentImageUrl === currentRound.imageUrl &&
+    gameImage.complete &&
+    gameImage.naturalWidth > 0
+  );
+}
+
+function syncLiveScreen(room, snapshot = deriveRoundSnapshot(room)) {
+  if (state.hasRevealedLiveMatch) {
+    state.waitingForFirstImageReveal = false;
+    queueSection.hidden = true;
+    matchSection.hidden = false;
+    return;
+  }
+
+  const shouldHold = shouldHoldLiveReveal(room);
+  state.waitingForFirstImageReveal = shouldHold;
+  queueSection.hidden = !shouldHold;
+  matchSection.hidden = shouldHold;
+
+  if (shouldHold) {
+    updateQueueCopy(
+      "Loading first image...",
+      snapshot?.timerLabel ? `${snapshot.timerLabel}. Getting the round ready.` : "Getting the round ready.",
+    );
+  }
+}
+
+function maybeRevealLiveMatch() {
+  const room = state.latestPayload?.room;
+
+  if (!state.waitingForFirstImageReveal || state.latestPayload?.status !== "live" || !room) {
+    return;
+  }
+
+  if (shouldHoldLiveReveal(room)) {
+    return;
+  }
+
+  state.waitingForFirstImageReveal = false;
+  state.hasRevealedLiveMatch = true;
+  queueSection.hidden = true;
+  matchSection.hidden = false;
+}
+
+function updateQueueCopy(title, copy) {
+  if (queueTitle) {
+    queueTitle.textContent = title;
+  }
+
+  if (queueCopy) {
+    queueCopy.textContent = copy;
+  }
 }
 
 function updateGuessFormAvailability(snapshot = deriveRoundSnapshot(state.latestPayload?.room || {})) {
@@ -1067,22 +1206,44 @@ function hasActiveSession() {
   return Boolean(state.playerId && state.token);
 }
 
-function clearSession() {
+function clearInitialIntroSkip() {
+  document.documentElement.classList.remove("play-online-skip-intro");
+}
+
+function clearSession(options = {}) {
+  const { preserveExitCleanupSent = false } = options;
   state.playerId = "";
   state.token = "";
   state.latestPayload = null;
+  if (!preserveExitCleanupSent) {
+    state.exitCleanupSent = false;
+  }
   syncSessionUrl();
 }
 
-function notifyServerAboutExit() {
-  if (!hasActiveSession()) {
+function leaveSessionOnExit() {
+  if (!hasActiveSession() || state.exitCleanupSent) {
     return;
   }
 
-  const payload = JSON.stringify({
-    playerId: state.playerId,
-    token: state.token,
-  });
+  state.exitCleanupSent = true;
+
+  const playerId = state.playerId;
+  const token = state.token;
+  stashPendingOnlineLeave({ playerId, token });
+  clearSession({ preserveExitCleanupSent: true });
+  notifyServerAboutExit({ playerId, token });
+}
+
+function notifyServerAboutExit(session) {
+  const playerId = String(session?.playerId || "").trim();
+  const token = String(session?.token || "").trim();
+
+  if (!playerId || !token) {
+    return;
+  }
+
+  const payload = JSON.stringify({ playerId, token });
 
   const didSendBeacon =
     typeof navigator !== "undefined" &&

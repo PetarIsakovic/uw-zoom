@@ -2,6 +2,15 @@
   min-height: 100svh;
 }
 
+.play-online-skip-intro .play-online-hero,
+.play-online-skip-intro .play-online-join {
+  display: none !important;
+}
+
+.play-online-skip-intro .play-online-queue {
+  display: grid !important;
+}
+
 .play-online-layout {
   width: min(1260px, 100%);
   margin: 0 auto;
@@ -69,9 +78,7 @@
   padding: 1.3rem;
   border-radius: var(--radius-lg);
   border: 1px solid rgba(17, 17, 17, 0.08);
-  background:
-    linear-gradient(135deg, rgba(242, 180, 0, 0.12), rgba(255, 255, 255, 0.62)),
-    rgba(255, 252, 246, 0.74);
+  background: rgba(255, 252, 246, 0.76);
 }
 
 .play-online-queue,
@@ -301,9 +308,7 @@
   min-height: clamp(320px, 58vh, 720px);
   overflow: hidden;
   border-radius: calc(var(--radius-xl) - 8px);
-  background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.76), rgba(255, 255, 255, 0.46)),
-    rgba(17, 17, 17, 0.05);
+  background: rgba(255, 255, 255, 0.62);
 }
 
 .play-online-image-frame::after {
@@ -335,9 +340,7 @@
   gap: 0.85rem;
   padding: 1.25rem;
   text-align: center;
-  background:
-    linear-gradient(180deg, rgba(255, 252, 246, 0.9), rgba(255, 252, 246, 0.76)),
-    radial-gradient(circle at 50% 42%, rgba(242, 180, 0, 0.08), transparent 12rem);
+  background: rgba(255, 252, 246, 0.9);
 }
 
 .play-online-image-loading-copy {

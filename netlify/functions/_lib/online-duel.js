@@ -22,6 +22,9 @@ const PRIVATE_ROOM_MAX_PLAYERS = 8;
 const PUBLIC_LOBBY_COUNTDOWN_MS = 10 * 1000;
 const QUEUE_STALE_MS = 2 * 60 * 1000;
 const QUEUE_HEARTBEAT_MS = 30 * 1000;
+const ROOM_PLAYER_HEARTBEAT_MS = 10 * 1000;
+const WAITING_ROOM_PLAYER_STALE_MS = 20 * 1000;
+const LIVE_ROOM_PLAYER_STALE_MS = 30 * 1000;
 const ROUND_COUNT = 3;
 const ROUND_COUNTDOWN_MS = 3000;
 const ROUND_INTERMISSION_MS = 3500;
@@ -246,6 +249,76 @@ export async function getOnlineDuelState({ origin, playerId, token }) {
     ...state,
     playerId: session.playerId,
     token: session.token,
+  };
+}
+
+export async function loadOnlineDuelAdminStats() {
+  requireOnlineStorage();
+
+  const queueEntries = await loadActiveQueueEntries();
+  const roomEntries = await listJson(`${ONLINE_ROOM_PREFIX}/`);
+  const activeRooms = [];
+  let totalGamesPlayed = 0;
+
+  for (const entry of roomEntries) {
+    const room = normalizeRoom(entry);
+
+    if (!room?.id) {
+      continue;
+    }
+
+    const syncedRoom = await syncRoom(room);
+
+    if (didRoomChange(room, syncedRoom)) {
+      if (!syncedRoom.players.length && syncedRoom.status !== ROOM_STATUS_FINISHED) {
+        await deleteObject(roomKey(syncedRoom.id)).catch(() => {});
+      } else {
+        await persistRoom(syncedRoom);
+      }
+    }
+
+    if (!syncedRoom.players.length && syncedRoom.status !== ROOM_STATUS_FINISHED) {
+      continue;
+    }
+
+    if (syncedRoom.status === ROOM_STATUS_FINISHED) {
+      totalGamesPlayed += 1;
+      continue;
+    }
+
+    activeRooms.push(buildAdminRoomState(syncedRoom));
+  }
+
+  activeRooms.sort((left, right) => {
+    const waitingOrder = left.status === right.status ? 0 : left.status === ROOM_STATUS_WAITING ? -1 : 1;
+    if (waitingOrder !== 0) {
+      return waitingOrder;
+    }
+
+    return Date.parse(left.createdAt || 0) - Date.parse(right.createdAt || 0);
+  });
+
+  const waitingRooms = activeRooms.filter((room) => room.status === ROOM_STATUS_WAITING);
+  const liveRooms = activeRooms.filter((room) => room.status === ROOM_STATUS_LIVE);
+
+  return {
+    updatedAt: new Date().toISOString(),
+    totals: {
+      totalGamesPlayed,
+      activeGames: activeRooms.length,
+      waitingRooms: waitingRooms.length,
+      liveGames: liveRooms.length,
+      queuedPlayers: queueEntries.length,
+      waitingLobbyPlayers: waitingRooms.reduce((sum, room) => sum + room.playerCount, 0),
+      playersInActiveGames: activeRooms.reduce((sum, room) => sum + room.playerCount, 0),
+    },
+    queue: queueEntries.map((entry) => ({
+      playerId: entry.playerId,
+      name: entry.name,
+      joinedAt: entry.joinedAt,
+      avatar: normalizeAvatarSelection(entry.avatar),
+    })),
+    rooms: activeRooms,
   };
 }
 
@@ -489,8 +562,16 @@ async function tryLoadAssignedRoom(origin, session) {
   }
 
   const syncedRoom = await syncRoom(room);
+  const playerStillInRoom = syncedRoom.players.some((player) => player.id === session.playerId);
 
-  if (didRoomChange(room, syncedRoom)) {
+  if (!playerStillInRoom) {
+    await deleteObject(playerAssignmentKey(session.playerId)).catch(() => {});
+    return null;
+  }
+
+  const touchedHeartbeat = touchRoomPlayerHeartbeat(syncedRoom, session.playerId);
+
+  if (didRoomChange(room, syncedRoom) || touchedHeartbeat) {
     await persistRoom(syncedRoom);
   }
 
@@ -515,8 +596,16 @@ async function loadRoomForPlayer(origin, session) {
   }
 
   const syncedRoom = await syncRoom(room);
+  const playerStillInRoom = syncedRoom.players.some((player) => player.id === session.playerId);
 
-  if (didRoomChange(room, syncedRoom)) {
+  if (!playerStillInRoom) {
+    await deleteObject(playerAssignmentKey(session.playerId)).catch(() => {});
+    throw new HttpError(404, "That online match could not be found.");
+  }
+
+  const touchedHeartbeat = touchRoomPlayerHeartbeat(syncedRoom, session.playerId);
+
+  if (didRoomChange(room, syncedRoom) || touchedHeartbeat) {
     await persistRoom(syncedRoom);
   }
 
@@ -531,52 +620,64 @@ async function joinPrivateRoom(origin, roomId, session) {
     throw new HttpError(404, "That private room could not be found.");
   }
 
-  if (room.status === ROOM_STATUS_FINISHED) {
+  const syncedRoom = await syncRoom(room);
+
+  if (didRoomChange(room, syncedRoom)) {
+    await persistRoom(syncedRoom);
+  }
+
+  if (!syncedRoom.players.length) {
+    throw new HttpError(404, "That private room could not be found.");
+  }
+
+  if (syncedRoom.status === ROOM_STATUS_FINISHED) {
     throw new HttpError(409, "That private room has already finished.");
   }
 
-  if (room.status === ROOM_STATUS_LIVE) {
+  if (syncedRoom.status === ROOM_STATUS_LIVE) {
     throw new HttpError(409, "That private room has already started.");
   }
 
-  const existingPlayer = room.players.find((player) => player.id === session.playerId);
+  const existingPlayer = syncedRoom.players.find((player) => player.id === session.playerId);
 
   if (existingPlayer) {
     existingPlayer.token = session.token;
     existingPlayer.name = session.name;
     existingPlayer.avatar = normalizeAvatarSelection(session.avatar);
     existingPlayer.joinedAt = existingPlayer.joinedAt || new Date().toISOString();
-    room.updatedAt = new Date().toISOString();
+    existingPlayer.lastSeenAt = new Date().toISOString();
+    syncedRoom.updatedAt = new Date().toISOString();
     await Promise.all([
-      persistRoom(room),
-      putJson(playerAssignmentKey(session.playerId), buildPlayerAssignment(room, session)),
+      persistRoom(syncedRoom),
+      putJson(playerAssignmentKey(session.playerId), buildPlayerAssignment(syncedRoom, session)),
     ]);
-    return room;
+    return syncedRoom;
   }
 
-  if (room.players.length >= room.maxPlayers) {
+  if (syncedRoom.players.length >= syncedRoom.maxPlayers) {
     throw new HttpError(409, "That private room is already full.");
   }
 
-  room.players.push({
+  syncedRoom.players.push({
     id: session.playerId,
     token: session.token,
     name: session.name,
     avatar: normalizeAvatarSelection(session.avatar),
     joinedAt: new Date().toISOString(),
+    lastSeenAt: new Date().toISOString(),
   });
-  room.scores = {
-    ...room.scores,
+  syncedRoom.scores = {
+    ...syncedRoom.scores,
     [session.playerId]: 0,
   };
-  room.updatedAt = new Date().toISOString();
+  syncedRoom.updatedAt = new Date().toISOString();
 
   await Promise.all([
-    persistRoom(room),
-    putJson(playerAssignmentKey(session.playerId), buildPlayerAssignment(room, session)),
+    persistRoom(syncedRoom),
+    putJson(playerAssignmentKey(session.playerId), buildPlayerAssignment(syncedRoom, session)),
   ]);
 
-  return room;
+  return syncedRoom;
 }
 
 async function joinPublicRoom(origin, roomId, session) {
@@ -603,6 +704,7 @@ async function joinPublicRoom(origin, roomId, session) {
     existingPlayer.name = session.name;
     existingPlayer.avatar = normalizeAvatarSelection(session.avatar);
     existingPlayer.joinedAt = existingPlayer.joinedAt || new Date().toISOString();
+    existingPlayer.lastSeenAt = new Date().toISOString();
     syncedRoom.updatedAt = new Date().toISOString();
 
     await Promise.all([
@@ -623,6 +725,7 @@ async function joinPublicRoom(origin, roomId, session) {
     name: session.name,
     avatar: normalizeAvatarSelection(session.avatar),
     joinedAt: new Date().toISOString(),
+    lastSeenAt: new Date().toISOString(),
   });
   syncedRoom.scores = {
     ...syncedRoom.scores,
@@ -689,6 +792,7 @@ async function createRoom(origin, players, options = {}) {
       name: player.name,
       avatar: normalizeAvatarSelection(player.avatar),
       joinedAt: new Date(now).toISOString(),
+      lastSeenAt: new Date(now).toISOString(),
     })),
     rounds,
     currentRoundIndex: 0,
@@ -710,6 +814,10 @@ async function syncRoom(room) {
   const now = Date.now();
   const nextRoom = normalizeRoom(room);
   let changed = false;
+
+  if (await pruneStaleRoomPlayers(nextRoom, now)) {
+    changed = true;
+  }
 
   while (true) {
     if (nextRoom.status === ROOM_STATUS_WAITING) {
@@ -1066,6 +1174,33 @@ function buildPublicRoomState(room, playerId, origin) {
   };
 }
 
+function buildAdminRoomState(room) {
+  return {
+    id: room.id,
+    type: room.type,
+    status: room.status,
+    createdAt: room.createdAt,
+    updatedAt: room.updatedAt,
+    hostId: room.hostId,
+    hostName: resolvePlayerName(room, room.hostId),
+    maxPlayers: room.maxPlayers,
+    playerCount: room.players.length,
+    lobbyStartsAt: room.lobbyStartsAt || "",
+    roundIndex: room.rounds.length ? Math.min(room.currentRoundIndex + 1, room.rounds.length) : 0,
+    roundCount: room.rounds.length,
+    players: room.players
+      .map((player) => ({
+        id: player.id,
+        name: player.name,
+        joinedAt: player.joinedAt || "",
+        lastSeenAt: player.lastSeenAt || "",
+        score: normalizeScore(room.scores[player.id]),
+        isHost: player.id === room.hostId,
+      }))
+      .sort((left, right) => Date.parse(left.joinedAt || 0) - Date.parse(right.joinedAt || 0)),
+  };
+}
+
 function buildPublicPlayers(room, currentPlayerId) {
   const players = room.players.map((player) => buildPublicPlayer(player, room.scores, currentPlayerId));
 
@@ -1135,6 +1270,69 @@ function getPublicRoomGuesses(guessesByPlayer, players, currentPlayerId) {
 
   guesses.sort((left, right) => Date.parse(left.at || 0) - Date.parse(right.at || 0));
   return guesses.slice(-ROOM_GUESS_FEED_LIMIT);
+}
+
+async function pruneStaleRoomPlayers(room, now = Date.now()) {
+  if (!room || room.status === ROOM_STATUS_FINISHED || !Array.isArray(room.players) || !room.players.length) {
+    return false;
+  }
+
+  const stalePlayerIds = room.players
+    .filter((player) => !isRoomPlayerFresh(player, room.status, now))
+    .map((player) => player.id);
+
+  if (!stalePlayerIds.length) {
+    return false;
+  }
+
+  room.players = room.players.filter((player) => !stalePlayerIds.includes(player.id));
+
+  for (const playerId of stalePlayerIds) {
+    delete room.scores[playerId];
+    delete room.currentRoundGuesses[playerId];
+  }
+
+  if (stalePlayerIds.includes(room.hostId)) {
+    room.hostId = room.players[0]?.id || "";
+  }
+
+  if (room.status === ROOM_STATUS_WAITING && room.players.length < PUBLIC_ROOM_MIN_PLAYERS) {
+    room.lobbyStartsAt = "";
+  }
+
+  room.updatedAt = new Date(now).toISOString();
+
+  await Promise.all(
+    stalePlayerIds.map((playerId) => deleteObject(playerAssignmentKey(playerId)).catch(() => {})),
+  );
+
+  return true;
+}
+
+function touchRoomPlayerHeartbeat(room, playerId, now = Date.now()) {
+  const player = room?.players?.find((entry) => entry.id === playerId);
+
+  if (!player) {
+    return false;
+  }
+
+  const lastSeenAtMs = Date.parse(String(player.lastSeenAt || player.joinedAt || ""));
+
+  if (Number.isFinite(lastSeenAtMs) && now - lastSeenAtMs < ROOM_PLAYER_HEARTBEAT_MS) {
+    return false;
+  }
+
+  player.lastSeenAt = new Date(now).toISOString();
+  room.updatedAt = player.lastSeenAt;
+  return true;
+}
+
+function isRoomPlayerFresh(player, roomStatus, now = Date.now()) {
+  const maxAgeMs =
+    roomStatus === ROOM_STATUS_WAITING ? WAITING_ROOM_PLAYER_STALE_MS : LIVE_ROOM_PLAYER_STALE_MS;
+  const lastSeenAtMs = Date.parse(String(player?.lastSeenAt || player?.joinedAt || ""));
+
+  return Number.isFinite(lastSeenAtMs) && now - lastSeenAtMs <= maxAgeMs;
 }
 
 async function loadActiveQueueEntries() {
@@ -1251,6 +1449,7 @@ async function findJoinablePublicRoom(origin, currentPlayerId) {
 
     if (
       syncedRoom.status === ROOM_STATUS_WAITING &&
+      syncedRoom.players.length >= 1 &&
       syncedRoom.players.length < syncedRoom.maxPlayers &&
       !syncedRoom.players.some((player) => player.id === currentPlayerId)
     ) {
@@ -1346,6 +1545,7 @@ function normalizeRoom(value) {
             name: normalizeName(player?.name),
             avatar: normalizeAvatarSelection(player?.avatar),
             joinedAt: player?.joinedAt || new Date().toISOString(),
+            lastSeenAt: player?.lastSeenAt || player?.joinedAt || new Date().toISOString(),
           }))
       : [],
     rounds: Array.isArray(value?.rounds) ? value.rounds : [],
