@@ -221,6 +221,69 @@
   font-size: 0.92rem;
 }
 
+.play-online-queue-players {
+  display: grid;
+  gap: 0.45rem;
+  justify-items: center;
+}
+
+.play-online-queue-players-label {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.play-online-queue-players-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.55rem;
+}
+
+.play-online-queue-player {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 10rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid rgba(17, 17, 17, 0.1);
+  background: rgba(255, 255, 255, 0.88);
+}
+
+.play-online-queue-player-avatar {
+  width: 2.2rem;
+  height: 2.2rem;
+  image-rendering: pixelated;
+  flex: 0 0 auto;
+}
+
+.play-online-queue-player-copy {
+  display: grid;
+  gap: 0.1rem;
+  min-width: 0;
+  text-align: left;
+}
+
+.play-online-queue-player-name {
+  font-size: 0.92rem;
+  letter-spacing: -0.03em;
+}
+
+.play-online-queue-player-meta {
+  color: var(--muted);
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .play-online-rules {
   display: grid;
   gap: 0.65rem;
@@ -375,24 +438,41 @@
 .play-online-scoreboard {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 0.6rem;
+  gap: 0;
   align-content: start;
+  align-self: start;
+  border: 2px solid rgba(17, 17, 17, 0.14);
+  background: #ffffff;
 }
 
 .play-online-player-card {
-  padding: 0.8rem 0.9rem;
-  border-radius: 18px;
-  border: 1px solid rgba(17, 17, 17, 0.08);
-  background: rgba(255, 255, 255, 0.72);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  padding: 0.8rem 0.85rem;
+  border-radius: 0;
+  border: 0;
+  border-bottom: 1px solid rgba(17, 17, 17, 0.1);
+  background: #ffffff;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) minmax(4.8rem, auto);
+  align-items: start;
   gap: 0.7rem;
 }
 
 .play-online-player-card[data-you="true"] {
-  border-color: rgba(242, 180, 0, 0.7);
-  box-shadow: inset 0 0 0 1px rgba(242, 180, 0, 0.32);
+  background: rgba(242, 180, 0, 0.14);
+}
+
+.play-online-player-card[data-leading="true"] {
+  background: rgba(108, 198, 71, 0.18);
+}
+
+.play-online-player-card:last-child {
+  border-bottom: 0;
+}
+
+.play-online-player-rank {
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.04em;
 }
 
 .play-online-player-identity {
@@ -403,8 +483,8 @@
 }
 
 .play-online-player-avatar {
-  width: 2.2rem;
-  height: 2.2rem;
+  width: 2.45rem;
+  height: 2.45rem;
   flex: 0 0 auto;
   image-rendering: pixelated;
 }
@@ -413,26 +493,35 @@
   display: grid;
   gap: 0.15rem;
   min-width: 0;
+  align-content: start;
 }
 
 .play-online-player-label {
   color: var(--muted);
-  font-size: 0.68rem;
+  font-size: 0.64rem;
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 
 .play-online-player-name {
-  font-size: clamp(0.98rem, 1.5vw, 1.16rem);
+  display: block;
+  font-size: clamp(0.98rem, 1.35vw, 1.12rem);
   letter-spacing: -0.04em;
+  line-height: 1.05;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .play-online-player-score {
-  font-size: clamp(1.25rem, 2.1vw, 1.65rem);
+  font-size: 0.95rem;
   font-weight: 700;
-  letter-spacing: -0.07em;
-  line-height: 1;
+  line-height: 1.1;
+  text-align: right;
+  white-space: nowrap;
+  justify-self: end;
+  align-self: center;
 }
 
 .play-online-round-bar {
@@ -440,7 +529,9 @@
   flex-wrap: wrap;
   justify-content: space-between;
   gap: 0.65rem;
-  padding: 0.15rem 0.1rem 0;
+  padding: 0.85rem 1rem;
+  border: 2px solid rgba(17, 17, 17, 0.12);
+  background: #ffffff;
 }
 
 .play-online-round-label,
@@ -471,14 +562,19 @@
   align-content: start;
 }
 
+.play-online-chat-column {
+  padding-top: 4.35rem;
+}
+
 .play-online-side-card {
   padding: 0.95rem 1rem;
-  border-radius: 22px;
-  border: 1px solid rgba(17, 17, 17, 0.08);
-  background: rgba(255, 255, 255, 0.58);
+  border-radius: 0;
+  border: 2px solid rgba(17, 17, 17, 0.12);
+  background: #ffffff;
   display: grid;
   gap: 0.7rem;
   min-height: 0;
+  align-content: start;
 }
 
 .play-online-side-card h2 {
@@ -506,16 +602,16 @@
   position: relative;
   min-height: clamp(320px, 58vh, 720px);
   overflow: hidden;
-  border-radius: calc(var(--radius-xl) - 8px);
-  background: rgba(255, 255, 255, 0.62);
+  border-radius: 0;
+  border: 2px solid rgba(17, 17, 17, 0.12);
+  background: #ffffff;
 }
 
 .play-online-image-frame::after {
   content: "";
   position: absolute;
   inset: 0;
-  border: 1px solid rgba(17, 17, 17, 0.08);
-  border-radius: inherit;
+  border: 0;
   pointer-events: none;
 }
 
@@ -539,7 +635,7 @@
   gap: 0.85rem;
   padding: 1.25rem;
   text-align: center;
-  background: rgba(255, 252, 246, 0.9);
+  background: rgba(255, 255, 255, 0.94);
 }
 
 .play-online-image-loading-copy {
@@ -555,14 +651,28 @@
 }
 
 .play-online-chat-card {
-  min-height: clamp(320px, 58vh, 720px);
+  height: clamp(320px, 58vh, 720px);
+  min-height: 0;
   grid-template-rows: auto auto minmax(0, 1fr) auto;
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.play-online-chat-card h2 {
+  padding: 0.95rem 1rem 0;
+}
+
+.play-online-chat-card .play-online-feed-copy {
+  padding: 0.2rem 1rem 0.8rem;
+  border-bottom: 1px solid rgba(17, 17, 17, 0.1);
 }
 
 .play-online-chat-log {
   min-height: 0;
   overflow: auto;
-  padding-right: 0.2rem;
+  border: 0;
+  background: #ffffff;
 }
 
 .play-online-guess-list,
@@ -571,23 +681,54 @@
   margin: 0;
   padding: 0;
   display: grid;
-  gap: 0.45rem;
+  gap: 0;
+}
+
+.play-online-guess-list {
+  padding: 0.45rem 0;
 }
 
 .play-online-guess-list li,
 .play-online-round-history li {
-  padding: 0.6rem 0.7rem;
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.72);
+  padding: 0.62rem 0.82rem;
+  border-radius: 0;
+  background: #ffffff;
   line-height: 1.45;
+  border-bottom: 1px solid rgba(17, 17, 17, 0.08);
+}
+
+.play-online-guess-list li:nth-child(even) {
+  background: rgba(17, 17, 17, 0.08);
+}
+
+.play-online-round-history li:nth-child(even) {
+  background: rgba(17, 17, 17, 0.04);
 }
 
 .play-online-guess-list li[data-correct="true"] {
-  background: rgba(13, 125, 70, 0.1);
+  background: rgba(155, 235, 123, 0.42);
+}
+
+.play-online-guess-list li[data-pending="true"] {
+  opacity: 0.72;
 }
 
 .play-online-empty-item {
   color: var(--muted);
+}
+
+.play-online-chat-message {
+  display: grid;
+  gap: 0.12rem;
+}
+
+.play-online-chat-speaker {
+  font-weight: 700;
+}
+
+.play-online-chat-body {
+  color: var(--ink);
+  word-break: break-word;
 }
 
 .play-online-guess-form {
@@ -596,10 +737,17 @@
   gap: 0.8rem;
   align-items: end;
   margin-top: auto;
+  padding: 0.85rem 1rem 1rem;
+  border-top: 1px solid rgba(17, 17, 17, 0.1);
+  background: #ffffff;
 }
 
 .play-online-guess-field {
   min-width: 0;
+}
+
+.play-online-guess-form .field-label {
+  display: none;
 }
 
 .play-online-autocomplete-shell {
@@ -630,6 +778,11 @@
   position: relative;
   z-index: 1;
   background: transparent;
+}
+
+.play-online-guess-form .text-input,
+.play-online-guess-form .button {
+  border-radius: 0;
 }
 
 .play-online-status {
@@ -717,9 +870,14 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .play-online-chat-column {
+    padding-top: 0;
+  }
+
   .play-online-players-column .play-online-side-card:first-child,
   .play-online-chat-card {
     min-height: auto;
+    height: auto;
   }
 
   .play-online-image-frame {
@@ -758,6 +916,16 @@
 
   .play-online-queue-copy p {
     font-size: 0.84rem;
+  }
+
+  .play-online-queue-player {
+    min-width: 9rem;
+    padding: 0.48rem 0.62rem;
+  }
+
+  .play-online-queue-player-avatar {
+    width: 2rem;
+    height: 2rem;
   }
 
   .play-online-rules {

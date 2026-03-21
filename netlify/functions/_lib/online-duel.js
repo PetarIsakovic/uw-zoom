@@ -28,7 +28,7 @@ const LIVE_ROOM_PLAYER_STALE_MS = 30 * 1000;
 const ROUND_COUNT = 3;
 const ROUND_COUNTDOWN_MS = 3000;
 const ROUND_INTERMISSION_MS = 3500;
-const ROUND_STEP_MS = 15 * 1000;
+const ROUND_STEP_MS = 30 * 1000;
 const ZOOM_LEVELS = [4.6, 3.2, 2.2, 1.45, 1];
 const ROUND_DURATION_MS = ROUND_STEP_MS * ZOOM_LEVELS.length;
 const RECENT_GUESSES_LIMIT = 6;
@@ -1262,7 +1262,7 @@ function getPublicRoomGuesses(guessesByPlayer, players, currentPlayerId) {
   const guesses = [];
 
   for (const [playerId, entries] of Object.entries(guessesByPlayer)) {
-    if (playerId === currentPlayerId || !Array.isArray(entries)) {
+    if (!Array.isArray(entries)) {
       continue;
     }
 

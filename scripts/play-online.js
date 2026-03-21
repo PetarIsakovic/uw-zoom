@@ -28,6 +28,8 @@ const roomRoster = document.querySelector("#online-room-roster");
 const queueSection = document.querySelector("#online-queue");
 const queueTitle = document.querySelector("#online-queue-title");
 const queueCopy = document.querySelector("#online-queue-copy");
+const queuePlayersSection = document.querySelector("#online-queue-players");
+const queuePlayersList = document.querySelector("#online-queue-players-list");
 const matchSection = document.querySelector("#online-match");
 const summarySection = document.querySelector("#online-summary");
 const scoreboard = document.querySelector("#online-scoreboard");
@@ -52,11 +54,29 @@ const imageLoadingCopy = document.querySelector("#online-image-loading-copy");
 const POLL_INTERVAL_QUEUED_MS = 2000;
 const POLL_INTERVAL_WAITING_MS = 1000;
 const POLL_INTERVAL_LIVE_MS = 1000;
-const GUEST_NAME_MIN = 100000;
-const GUEST_NAME_MAX = 999999;
 const AUTO_JOIN_QUERY_KEY = "autoplay";
 const CREATE_PRIVATE_ROOM_QUERY_KEY = "createPrivateRoom";
 const ROOM_QUERY_KEY = "room";
+const GENERATED_PLAYER_NAMES = [
+  "Goose",
+  "LinkedInWarrior",
+  "QuestDweller",
+  "DanaPorterGremlin",
+  "LazeezEnjoyer",
+  "WatCardWizard",
+  "SLCWanderer",
+  "MCBasementGoblin",
+  "PACRunner",
+  "CIFCamper",
+  "CoopGoblin",
+  "E7Lurker",
+  "GooseWrangler",
+  "MathSocMystery",
+  "BomberNightOwl",
+  "RCHRoamer",
+  "IONDrifter",
+  "UWPigeon",
+];
 
 const state = {
   playerId: "",
@@ -78,6 +98,7 @@ const state = {
   queueTitleAnimate: false,
   queueTitleTick: 0,
   queueTitleTimer: 0,
+  pendingRoomGuesses: [],
 };
 
 bootstrap();
@@ -377,8 +398,15 @@ async function submitGuess() {
     return;
   }
 
+  const pendingEntry = createPendingRoomGuess(guess);
+
   try {
+    pushPendingRoomGuess(pendingEntry);
+    guessForm.reset();
+    guessInput.disabled = true;
     guessButton.disabled = true;
+    clearInlineSuggestion();
+    rerenderActiveRoom();
     setStatus(onlineStatus, "Sending guess...", "default");
 
     const payload = await requestJson("/api/online-duel-guess", {
@@ -390,10 +418,16 @@ async function submitGuess() {
       },
     });
 
-    guessForm.reset();
-    clearInlineSuggestion();
+    removePendingRoomGuess(pendingEntry.localId);
     renderPayload(payload);
   } catch (error) {
+    removePendingRoomGuess(pendingEntry.localId);
+    rerenderActiveRoom();
+    guessInput.value = guess;
+    guessInput.disabled = false;
+    updateAutocomplete();
+    guessInput.focus();
+    guessInput.setSelectionRange(guessInput.value.length, guessInput.value.length);
     setStatus(onlineStatus, error.message, "error");
   } finally {
     updateGuessFormAvailability();
@@ -495,6 +529,7 @@ function renderIdle(options = {}) {
   clearInlineSuggestion();
   populateRoomLink("");
   roomRoster?.replaceChildren();
+  clearQueuePlayers();
   scoreboard?.replaceChildren();
   stopQueueTitleAnimation();
 
@@ -524,6 +559,7 @@ function renderQueued() {
   playerNameInput.disabled = true;
   state.waitingForFirstImageReveal = false;
   state.hasRevealedLiveMatch = false;
+  clearQueuePlayers();
   updateQueueCopy("Finding a match...", "Looking for another player right now.");
 }
 
@@ -548,6 +584,7 @@ function renderCreatingPrivateRoom() {
   roomCopy.textContent = "Generating the invite link. You will be able to share it in a moment.";
   populateRoomLink("Generating invite link...");
   roomRoster?.replaceChildren();
+  clearQueuePlayers();
   setStatus(onlineStatus, "Creating your private room...", "default");
 }
 
@@ -572,6 +609,7 @@ function renderWaitingRoom(room) {
   startRoomButton.disabled = !room?.canStart;
   state.waitingForFirstImageReveal = false;
   state.hasRevealedLiveMatch = false;
+  clearQueuePlayers();
 
   roomTitle.textContent = room?.isHost ? "Your private room" : `${room?.hostName || "Private"} room`;
   roomCopy.textContent = room?.canStart
@@ -608,6 +646,7 @@ function renderLive(room) {
   createPrivateRoomButton.hidden = true;
   startRoomButton.hidden = true;
   playerNameInput.disabled = true;
+  clearQueuePlayers();
   setStatus(
     onlineStatus,
     room?.type === "private"
@@ -642,6 +681,7 @@ function renderFinished(room) {
   playerNameInput.disabled = false;
   state.waitingForFirstImageReveal = false;
   state.hasRevealedLiveMatch = false;
+  clearQueuePlayers();
   setStatus(onlineStatus, "Match finished.", "default");
   renderRoom(room);
   updateSummary(room);
@@ -659,7 +699,7 @@ function renderRoom(room) {
   renderGuessHistory(yourGuessList, room.currentRound?.youGuesses || [], "No guesses yet.");
   renderGuessHistory(
     roomGuessList,
-    room.currentRound?.roomGuesses || [],
+    getVisibleRoomGuesses(room),
     "No room guesses yet.",
   );
   updateRoomSnapshot(room);
@@ -787,7 +827,7 @@ function deriveRoundSnapshot(room) {
   const zoomLevels = Array.isArray(round.zoomLevels) && round.zoomLevels.length
     ? round.zoomLevels
     : [round.zoomScale || 1];
-  const stepMs = Number(round.zoomStepMs || 15000);
+  const stepMs = Number(round.zoomStepMs || 30000);
   const roundDurationMs = Number(round.roundDurationMs || stepMs * zoomLevels.length);
   const elapsed = Number.isFinite(startedAt) ? Math.max(0, now - startedAt) : 0;
   const zoomIndex = Math.min(Math.floor(elapsed / stepMs), zoomLevels.length - 1);
@@ -875,6 +915,7 @@ function renderPublicWaitingRoom(room) {
   state.waitingForFirstImageReveal = false;
   state.hasRevealedLiveMatch = false;
   populateRoomLink("");
+  renderQueuePlayers(room?.players || [], room?.hostId || "");
   updateWaitingRoomSnapshot(room);
   startRoomTicker();
 }
@@ -1033,12 +1074,23 @@ function renderGuessHistory(container, guesses, emptyText) {
 
   for (const entry of guesses) {
     const item = document.createElement("li");
+    item.className = "play-online-chat-message";
     const displayGuess = censorProfanity(entry.guess, { maxLength: 80 });
-    const guessPrefix = entry.playerName ? `${entry.playerName}: ` : "";
-    item.textContent = entry.correct ? `${guessPrefix}${displayGuess} ✓` : `${guessPrefix}${displayGuess}`;
+    const speaker = document.createElement("strong");
+    speaker.className = "play-online-chat-speaker";
+    speaker.textContent = entry.playerName || "Player";
+
+    const body = document.createElement("span");
+    body.className = "play-online-chat-body";
+    body.textContent = entry.correct ? `${displayGuess} ✓` : displayGuess;
+
     if (entry.correct) {
       item.dataset.correct = "true";
     }
+    if (entry.pending) {
+      item.dataset.pending = "true";
+    }
+    item.append(speaker, body);
     container.append(item);
   }
 }
@@ -1056,13 +1108,21 @@ function renderScoreboard(players, hostId) {
 
   const fragment = document.createDocumentFragment();
 
-  players.forEach((player) => {
+  players.forEach((player, index) => {
     const card = document.createElement("article");
     card.className = "play-online-player-card";
 
     if (player.isYou) {
       card.dataset.you = "true";
     }
+
+    if (index === 0) {
+      card.dataset.leading = "true";
+    }
+
+    const rank = document.createElement("span");
+    rank.className = "play-online-player-rank";
+    rank.textContent = `#${index + 1}`;
 
     const identity = document.createElement("div");
     identity.className = "play-online-player-identity";
@@ -1089,9 +1149,9 @@ function renderScoreboard(players, hostId) {
 
     const score = document.createElement("span");
     score.className = "play-online-player-score";
-    score.textContent = String(player.score || 0);
+    score.textContent = `${player.score || 0} pts`;
 
-    card.append(identity, score);
+    card.append(rank, identity, score);
     fragment.append(card);
   });
 
@@ -1153,6 +1213,71 @@ function renderRoomRoster(players, hostId) {
   });
 
   roomRoster.append(fragment);
+}
+
+function renderQueuePlayers(players, hostId) {
+  if (!queuePlayersSection || !queuePlayersList) {
+    return;
+  }
+
+  queuePlayersList.replaceChildren();
+
+  if (!players.length) {
+    queuePlayersSection.hidden = true;
+    return;
+  }
+
+  const fragment = document.createDocumentFragment();
+
+  players.forEach((player) => {
+    const item = document.createElement("li");
+    item.className = "play-online-queue-player";
+
+    const avatar = document.createElement("canvas");
+    avatar.className = "play-online-queue-player-avatar";
+    avatar.width = 36;
+    avatar.height = 36;
+    drawAvatarIcon(avatar, player.avatar);
+
+    const copy = document.createElement("div");
+    copy.className = "play-online-queue-player-copy";
+
+    const name = document.createElement("strong");
+    name.className = "play-online-queue-player-name";
+    name.textContent = player.name || "Player";
+    copy.append(name);
+
+    const meta = [];
+
+    if (hostId === player.id) {
+      meta.push("Host");
+    }
+
+    if (player.isYou) {
+      meta.push("You");
+    }
+
+    if (meta.length) {
+      const metaText = document.createElement("span");
+      metaText.className = "play-online-queue-player-meta";
+      metaText.textContent = meta.join(" • ");
+      copy.append(metaText);
+    }
+
+    item.append(avatar, copy);
+    fragment.append(item);
+  });
+
+  queuePlayersList.append(fragment);
+  queuePlayersSection.hidden = false;
+}
+
+function clearQueuePlayers() {
+  queuePlayersList?.replaceChildren();
+
+  if (queuePlayersSection) {
+    queuePlayersSection.hidden = true;
+  }
 }
 
 function populateRoomLink(value) {
@@ -1302,6 +1427,7 @@ function clearSession(options = {}) {
   state.playerId = "";
   state.token = "";
   state.latestPayload = null;
+  state.pendingRoomGuesses = [];
   if (!preserveExitCleanupSent) {
     state.exitCleanupSent = false;
   }
@@ -1454,11 +1580,65 @@ function ensurePlayerName() {
 }
 
 function createGuestName() {
-  const randomNumber =
-    Math.floor(Math.random() * (GUEST_NAME_MAX - GUEST_NAME_MIN + 1)) + GUEST_NAME_MIN;
-  return `guest_${randomNumber}`;
+  return GENERATED_PLAYER_NAMES[Math.floor(Math.random() * GENERATED_PLAYER_NAMES.length)];
 }
 
 function normalizeGuessDisplay(value) {
   return censorProfanity(value, { maxLength: 80 });
+}
+
+function createPendingRoomGuess(guess) {
+  const room = state.latestPayload?.room;
+
+  return {
+    localId: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    roomId: room?.id || "",
+    roundIndex: Number(room?.roundIndex || 0),
+    playerId: state.playerId,
+    playerName: room?.you?.name || normalizeName(playerNameInput?.value || "") || "You",
+    guess,
+    correct: false,
+    pending: true,
+    at: new Date().toISOString(),
+  };
+}
+
+function pushPendingRoomGuess(entry) {
+  state.pendingRoomGuesses = [...state.pendingRoomGuesses, entry];
+}
+
+function removePendingRoomGuess(localId) {
+  state.pendingRoomGuesses = state.pendingRoomGuesses.filter((entry) => entry.localId !== localId);
+}
+
+function getVisibleRoomGuesses(room) {
+  const serverGuesses = Array.isArray(room?.currentRound?.roomGuesses) ? room.currentRound.roomGuesses : [];
+  const pendingGuesses = state.pendingRoomGuesses.filter((entry) => {
+    return entry.roomId === room?.id && entry.roundIndex === Number(room?.roundIndex || 0);
+  });
+
+  if (!pendingGuesses.length) {
+    return serverGuesses;
+  }
+
+  const mergedGuesses = [...serverGuesses];
+
+  pendingGuesses.forEach((pendingEntry) => {
+    const alreadyPresent = serverGuesses.some((entry) => {
+      return entry.playerName === pendingEntry.playerName && entry.guess === pendingEntry.guess;
+    });
+
+    if (!alreadyPresent) {
+      mergedGuesses.push(pendingEntry);
+    }
+  });
+
+  mergedGuesses.sort((left, right) => Date.parse(left.at || 0) - Date.parse(right.at || 0));
+  return mergedGuesses;
+}
+
+function rerenderActiveRoom() {
+  if (state.latestPayload?.room) {
+    renderRoom(state.latestPayload.room);
+  }
 }

@@ -101,8 +101,27 @@ let avatarAnimationFrameIndex = 0;
 let avatarAnimationTimerId = 0;
 const avatarScratchCanvas = document.createElement("canvas");
 const avatarScratchContext = avatarScratchCanvas.getContext("2d", { willReadFrequently: true });
-const GUEST_NAME_MIN = 100000;
-const GUEST_NAME_MAX = 999999;
+const GENERATED_PLAYER_NAMES = [
+  "Goose",
+  "LinkedInWarrior",
+  "QuestDweller",
+  "DanaPorterGremlin",
+  "LazeezEnjoyer",
+  "WatCardWizard",
+  "SLCWanderer",
+  "MCBasementGoblin",
+  "PACRunner",
+  "CIFCamper",
+  "CoopGoblin",
+  "E7Lurker",
+  "GooseWrangler",
+  "MathSocMystery",
+  "BomberNightOwl",
+  "RCHRoamer",
+  "IONDrifter",
+  "UWPigeon",
+];
+const GENERATED_PLAYER_NAME_SET = new Set(GENERATED_PLAYER_NAMES.map((name) => name.toLowerCase()));
 
 landingShell?.setAttribute("data-ready", "false");
 const landingAvatarReadyPromise = setupLandingSetup();
@@ -1002,13 +1021,11 @@ function normalizePlayerName(value) {
 }
 
 function createGuestName() {
-  const randomNumber =
-    Math.floor(Math.random() * (GUEST_NAME_MAX - GUEST_NAME_MIN + 1)) + GUEST_NAME_MIN;
-  return `guest_${randomNumber}`;
+  return GENERATED_PLAYER_NAMES[Math.floor(Math.random() * GENERATED_PLAYER_NAMES.length)];
 }
 
 function isGeneratedGuestName(value) {
-  return /^guest_\d+$/iu.test(String(value || "").trim());
+  return GENERATED_PLAYER_NAME_SET.has(String(value || "").trim().toLowerCase());
 }
 
 function hasAvatarSelectionInSearchParams(params) {

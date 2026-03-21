@@ -99,7 +99,7 @@ uploadForm.addEventListener("submit", async (event) => {
     uploadForm.reset();
     clearPreview();
     hideAnswerPanel();
-    setStatus(uploadStatus, "Uploaded. The image is now waiting for approval.", "success");
+    setStatus(uploadStatus, "", "default");
   } catch (error) {
     setStatus(uploadStatus, error.message, "error");
   }
