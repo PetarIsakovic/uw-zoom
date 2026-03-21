@@ -1014,13 +1014,6 @@ async function syncBotActions(room, now) {
     return false;
   }
 
-  // Small delay after human message before bot responds
-  const isFast = Math.random() < 0.6;
-  const replyDelay = isFast
-    ? BOT_GUESS_FAST_MIN_MS + Math.floor(Math.random() * (BOT_GUESS_FAST_MAX_MS - BOT_GUESS_FAST_MIN_MS))
-    : BOT_GUESS_SLOW_MIN_MS + Math.floor(Math.random() * (BOT_GUESS_SLOW_MAX_MS - BOT_GUESS_SLOW_MIN_MS));
-  if (now - lastHumanActivityMs < replyDelay) return false;
-
   // Collect unresponded human messages since last bot action
   const sinceMs = Number.isFinite(lastActionAtMs) ? lastActionAtMs : 0;
   const humanGuesses = Object.entries(room.currentRoundGuesses || {})
@@ -1028,12 +1021,14 @@ async function syncBotActions(room, now) {
     .flatMap(([, entries]) => (Array.isArray(entries) ? entries : []))
     .filter((g) => Date.parse(g.at || "") > sinceMs);
 
-  // --- React to human chat ---
+  // --- React to human chat (fast reply: 2–4s) ---
   const latestHumanChat = humanGuesses
     .filter((g) => !g.correct && looksLikeChatNotGuess(g.guess))
     .sort((a, b) => Date.parse(b.at) - Date.parse(a.at))[0];
 
   if (latestHumanChat) {
+    const chatDelay = 2000 + Math.floor(Math.random() * 2000);
+    if (now - Date.parse(latestHumanChat.at) < chatDelay) return false;
     const reaction = await generateBotReaction({ humanMessage: latestHumanChat.guess });
     if (!Array.isArray(room.roomChatMessages)) room.roomChatMessages = [];
     room.roomChatMessages = [
@@ -1044,7 +1039,7 @@ async function syncBotActions(room, now) {
     return true;
   }
 
-  // --- React to human single-word location guess with a bot guess (~60% chance) ---
+  // --- React to human single-word location guess with a bot guess (slower: 6–12s, ~60% chance) ---
   const latestHumanGuess = humanGuesses
     .filter((g) => {
       if (g.correct || looksLikeChatNotGuess(g.guess)) return false;
@@ -1053,6 +1048,8 @@ async function syncBotActions(room, now) {
     .sort((a, b) => Date.parse(b.at) - Date.parse(a.at))[0];
 
   if (latestHumanGuess && Math.random() < 0.6) {
+    const guessDelay = 6000 + Math.floor(Math.random() * 6000);
+    if (now - Date.parse(latestHumanGuess.at) < guessDelay) return false;
     const guessText = await generateBotWrongGuess({ zoomStepIndex });
     if (guessText) {
       const botGuesses = Array.isArray(room.currentRoundGuesses?.[room.botPlayerId])

@@ -569,8 +569,8 @@
   position: relative;
   display: flex;
   align-items: center;
-  gap: 0.65rem;
-  padding: 0.45rem 1rem;
+  gap: 0.5rem;
+  padding: 0.25rem 0.75rem;
   border: 2px solid rgba(17, 17, 17, 0.12);
   background: #ffffff;
   width: 100%;
@@ -599,8 +599,10 @@ body.play-online-in-game .play-online-layout {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  padding: 0 0.5rem 0.4rem;
-  width: 100%;
+  padding: 0.3rem 0.5rem 0.4rem;
+  width: min(1180px, 100%);
+  margin: 0 auto;
+  box-sizing: border-box;
 }
 
 body.play-online-in-game .play-online-panel {
@@ -626,15 +628,14 @@ body.play-online-in-game .play-online-arena {
   flex: 1;
   min-height: 0;
   align-items: stretch;
-  margin-top: 0.4rem;
+  margin-top: 0.3rem;
+  overflow: hidden;
 }
 
-body.play-online-in-game .play-online-side-column {
-  align-content: stretch;
-}
-
-body.play-online-in-game .play-online-players-column .play-online-side-card:first-child {
-  flex: 1;
+body.play-online-in-game .play-online-side-column,
+body.play-online-in-game .play-online-center-column {
+  min-height: 0;
+  overflow: hidden;
 }
 
 body.play-online-in-game .play-online-players-column .play-online-side-card:first-child,
@@ -646,6 +647,12 @@ body.play-online-in-game .play-online-image-frame {
 body.play-online-in-game .play-online-chat-card {
   min-height: 0;
   flex: 1;
+}
+
+/* Shrink the clock timer in-game so the round bar is compact */
+body.play-online-in-game .play-online-clock-timer {
+  width: 2.8rem;
+  height: 2.8rem;
 }
 
 .play-online-timer-context {
@@ -671,7 +678,7 @@ body.play-online-in-game .play-online-chat-card {
 
 .play-online-timer-label {
   position: absolute;
-  top: 50%;
+  top: 44%;
   left: 50%;
   transform: translate(-50%, -50%);
   font-size: 1.45rem;
@@ -688,7 +695,8 @@ body.play-online-in-game .play-online-chat-card {
 .play-online-settings-button {
   width: 2.6rem;
   height: 2.6rem;
-  flex: 0 0 auto;
+  position: absolute;
+  right: 0.75rem;
   padding: 0;
   border: none;
   background: none;
@@ -812,7 +820,7 @@ body.play-online-in-game .play-online-chat-card {
 
 .play-online-arena {
   display: grid;
-  grid-template-columns: minmax(12rem, 15rem) minmax(0, 1fr) minmax(15rem, 19rem);
+  grid-template-columns: minmax(12rem, 16rem) minmax(0, 1fr) minmax(15rem, 20rem);
   gap: 0.4rem;
   align-items: stretch;
   margin-top: 0.4rem;
@@ -832,6 +840,78 @@ body.play-online-in-game .play-online-chat-card {
 .play-online-chat-column {
   display: flex;
   flex-direction: column;
+}
+
+/* Lobby center panel — replaces the image during waiting state */
+.play-online-lobby-center {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  border: 2px solid rgba(17, 17, 17, 0.12);
+  background: #ffffff;
+}
+
+.play-online-lobby-center-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  align-items: flex-start;
+  justify-content: center;
+  flex: 1;
+  padding: 2.5rem 2rem;
+}
+
+.play-online-lobby-title {
+  margin: 0 0 0.4rem;
+  font-size: clamp(1.4rem, 2.5vw, 2rem);
+  letter-spacing: -0.03em;
+}
+
+.play-online-lobby-subtitle {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  font-weight: 400;
+}
+
+.play-online-lobby-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+/* Hide clock gif in lobby — show a static label instead */
+body.play-online-in-lobby .play-online-clock-gif {
+  display: none;
+}
+
+body.play-online-in-lobby .play-online-clock-timer {
+  width: auto;
+  height: auto;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+body.play-online-in-lobby .play-online-clock-timer::before {
+  content: "Lobby";
+}
+
+body.play-online-in-lobby .play-online-letter-hint,
+body.play-online-in-lobby .play-online-settings-button {
+  display: none;
+}
+
+/* Room roster inside players panel */
+.play-online-room-roster {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0;
 }
 
 .play-online-side-card {

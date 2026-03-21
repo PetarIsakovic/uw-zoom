@@ -57,6 +57,9 @@ const gameImage = document.querySelector("#online-game-image");
 const imageLoading = document.querySelector("#online-image-loading");
 const imageLoadingCopy = document.querySelector("#online-image-loading-copy");
 const letterHintEl = document.querySelector("#online-letter-hint");
+const lobbyCenterEl = document.querySelector("#online-lobby-center");
+const stageEl = document.querySelector("#online-stage");
+const guessLabel = document.querySelector("#online-guess-label");
 
 const POLL_INTERVAL_QUEUED_MS = 2000;
 const POLL_INTERVAL_WAITING_MS = 1000;
@@ -496,11 +499,10 @@ async function createPrivateRoom() {
   const playerName = ensurePlayerName();
 
   try {
-    renderCreatingPrivateRoom();
     setBusy(true);
+    createPrivateRoomButton.textContent = "Creating...";
     state.exitCleanupSent = false;
     clearPendingOnlineLeave();
-    setStatus(onlineStatus, "Creating your private room...", "default");
 
     const payload = await requestJson("/api/online-duel-create-room", {
       method: "POST",
@@ -519,6 +521,7 @@ async function createPrivateRoom() {
     renderPayload(payload);
   } catch (error) {
     setStatus(onlineStatus, error.message, "error");
+    createPrivateRoomButton.textContent = "Create Private Room";
   } finally {
     setBusy(false);
   }
@@ -709,6 +712,7 @@ function renderPayload(payload) {
 
 function renderIdle(options = {}) {
   document.body.classList.remove("play-online-in-game");
+  document.body.classList.remove("play-online-in-lobby");
   clearInitialIntroSkip();
   clearJoiningState();
   state.latestPayload = null;
@@ -784,9 +788,9 @@ function renderCreatingPrivateRoom() {
   clearRoomTicker();
   heroSection.hidden = true;
   joinSection.hidden = true;
-  lobbySection.hidden = false;
+  lobbySection.hidden = true;
   queueSection.hidden = true;
-  matchSection.hidden = true;
+  matchSection.hidden = false;
   summarySection.hidden = true;
   leaveMatchButton.hidden = true;
   joinMatchButton.hidden = true;
@@ -794,6 +798,10 @@ function renderCreatingPrivateRoom() {
   startRoomButton.hidden = true;
   playerNameInput.disabled = true;
   roomLinkRow.hidden = false;
+  if (lobbyCenterEl) lobbyCenterEl.hidden = false;
+  if (stageEl) stageEl.hidden = true;
+  document.body.classList.add("play-online-in-game");
+  document.body.classList.add("play-online-in-lobby");
   state.waitingForFirstImageReveal = false;
   state.hasRevealedLiveMatch = false;
   stopQueueTitleAnimation();
@@ -801,7 +809,11 @@ function renderCreatingPrivateRoom() {
   roomCopy.textContent = "Generating the invite link. You will be able to share it in a moment.";
   populateRoomLink("Generating invite link...");
   roomRoster?.replaceChildren();
+  if (roomRoster) roomRoster.hidden = false;
+  scoreboard.hidden = true;
   clearQueuePlayers();
+  if (guessLabel) guessLabel.textContent = "Say something";
+  if (guessInput) guessInput.placeholder = "Chat with your friends...";
   setStatus(onlineStatus, "Creating your private room...", "default");
 }
 
@@ -814,19 +826,27 @@ function renderWaitingRoom(room) {
   heroSection.hidden = true;
   joinSection.hidden = true;
   queueSection.hidden = true;
-  lobbySection.hidden = false;
-  matchSection.hidden = true;
+  lobbySection.hidden = true;
+  matchSection.hidden = false;
   summarySection.hidden = true;
   leaveMatchButton.hidden = true;
   joinMatchButton.hidden = true;
   createPrivateRoomButton.hidden = true;
   playerNameInput.disabled = true;
-  roomLinkRow.hidden = room?.type !== "private";
-  startRoomButton.hidden = room?.type !== "private" || !room?.isHost;
+  roomLinkRow.hidden = false;
+  startRoomButton.hidden = !room?.isHost;
   startRoomButton.disabled = !room?.canStart;
+  if (lobbyCenterEl) lobbyCenterEl.hidden = false;
+  if (stageEl) stageEl.hidden = true;
+  document.body.classList.add("play-online-in-game");
+  document.body.classList.add("play-online-in-lobby");
+  if (roomRoster) roomRoster.hidden = false;
+  scoreboard.hidden = true;
   state.waitingForFirstImageReveal = false;
   state.hasRevealedLiveMatch = false;
   clearQueuePlayers();
+  if (guessLabel) guessLabel.textContent = "Say something";
+  if (guessInput) guessInput.placeholder = "Chat with your friends...";
 
   roomTitle.textContent = room?.isHost ? "Your private room" : `${room?.hostName || "Private"} room`;
   roomCopy.textContent = room?.canStart
@@ -850,6 +870,7 @@ function renderWaitingRoom(room) {
 
 function renderLive(room) {
   document.body.classList.add("play-online-in-game");
+  document.body.classList.remove("play-online-in-lobby");
   stopQueueTitleAnimation();
   const showSingleLoadingScreen = !state.hasRevealedLiveMatch && shouldHoldLiveReveal(room);
 
@@ -864,6 +885,12 @@ function renderLive(room) {
   createPrivateRoomButton.hidden = true;
   startRoomButton.hidden = true;
   playerNameInput.disabled = true;
+  if (lobbyCenterEl) lobbyCenterEl.hidden = true;
+  if (stageEl) stageEl.hidden = false;
+  if (roomRoster) roomRoster.hidden = true;
+  scoreboard.hidden = false;
+  if (guessLabel) guessLabel.textContent = "Your guess";
+  if (guessInput) guessInput.placeholder = "WatCard, Dana Porter, goose...";
   clearQueuePlayers();
   setStatus(
     onlineStatus,
@@ -886,6 +913,7 @@ function renderLive(room) {
 
 function renderFinished(room) {
   document.body.classList.remove("play-online-in-game");
+  document.body.classList.remove("play-online-in-lobby");
   resetSoundTracking();
   stopQueueTitleAnimation();
   heroSection.hidden = true;
@@ -1254,10 +1282,12 @@ function stopQueueTitleAnimation() {
 }
 
 function updateGuessFormAvailability(snapshot = deriveRoundSnapshot(state.latestPayload?.room || {})) {
+  const isWaiting = state.latestPayload?.status === "waiting";
   const canGuess = Boolean(snapshot?.canGuess && state.latestPayload?.status === "live");
+  const canChat = isWaiting && document.body.classList.contains("play-online-in-lobby");
   guessInput.disabled = false;
-  guessButton.disabled = !canGuess;
-  guessInput.dataset.canGuess = canGuess ? "true" : "false";
+  guessButton.disabled = !canGuess && !canChat;
+  guessInput.dataset.canGuess = (canGuess || canChat) ? "true" : "false";
 
   if (!canGuess) {
     clearInlineSuggestion();

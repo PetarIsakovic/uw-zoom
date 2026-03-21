@@ -257,43 +257,7 @@
             </p>
           </section>
 
-          <section class="play-online-lobby" id="online-lobby" hidden>
-            <div class="play-online-lobby-header">
-              <div class="play-online-lobby-copy">
-                <p class="eyebrow">Private Room</p>
-                <h2 class="play-online-lobby-title" id="online-room-title">Private Room</h2>
-                <p class="play-online-lobby-subtitle" id="online-room-copy">
-                  Share the room link below. Only people with that link can join.
-                </p>
-              </div>
-              <button
-                class="button button-secondary play-online-start-button"
-                id="start-room-button"
-                type="button"
-                hidden
-              >
-                Start Game
-              </button>
-            </div>
-
-            <div class="play-online-room-link-row" id="online-room-link-row">
-              <input
-                class="text-input play-online-room-link"
-                id="online-room-link"
-                type="text"
-                readonly
-                value=""
-              />
-              <button class="button button-secondary" id="copy-room-link-button" type="button">
-                Copy Link
-              </button>
-            </div>
-
-            <section class="play-online-feed-card">
-              <h2>Players</h2>
-              <ul class="play-online-room-roster" id="online-room-roster"></ul>
-            </section>
-          </section>
+          <section class="play-online-lobby" id="online-lobby" hidden></section>
 
           <section class="play-online-queue" id="online-queue" hidden>
             <div class="landing-startup-loading-card">
@@ -402,13 +366,48 @@
                 <section class="play-online-side-card">
                   <h2>Players</h2>
                   <div class="play-online-scoreboard" id="online-scoreboard"></div>
+                  <ul class="play-online-room-roster" id="online-room-roster" hidden></ul>
                 </section>
 
                 <ul class="play-online-round-history" id="online-round-history" hidden></ul>
               </aside>
 
               <div class="play-online-center-column">
-                <div class="play-online-stage">
+                <!-- Lobby center: shown while waiting for a private room to start -->
+                <div class="play-online-lobby-center" id="online-lobby-center" hidden>
+                  <div class="play-online-lobby-center-inner">
+                    <div class="play-online-lobby-copy">
+                      <p class="eyebrow">Private Room</p>
+                      <h2 class="play-online-lobby-title" id="online-room-title">Private Room</h2>
+                      <p class="play-online-lobby-subtitle" id="online-room-copy">
+                        Share the room link below. Only people with that link can join.
+                      </p>
+                    </div>
+                    <div class="play-online-room-link-row" id="online-room-link-row">
+                      <input
+                        class="text-input play-online-room-link"
+                        id="online-room-link"
+                        type="text"
+                        readonly
+                        value=""
+                      />
+                      <button class="button button-secondary" id="copy-room-link-button" type="button">
+                        Copy Link
+                      </button>
+                    </div>
+                    <button
+                      class="button button-primary play-online-start-button"
+                      id="start-room-button"
+                      type="button"
+                      hidden
+                    >
+                      Start Game
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Game stage: shown during live game -->
+                <div class="play-online-stage" id="online-stage">
                   <div class="play-online-image-frame">
                     <div class="play-online-image-loading" id="online-image-loading">
                       <div class="play-online-image-loading-card">
@@ -436,7 +435,7 @@
 
                   <form class="play-online-guess-form" id="online-guess-form" autocomplete="off">
                     <label class="field-group play-online-guess-field" for="online-guess-input">
-                      <span class="field-label">Your guess</span>
+                      <span class="field-label" id="online-guess-label">Your guess</span>
                       <div class="autocomplete-shell play-online-autocomplete-shell">
                         <div class="autocomplete-ghost" aria-hidden="true">
                           <span class="autocomplete-typed" id="online-ghost-typed"></span><span
