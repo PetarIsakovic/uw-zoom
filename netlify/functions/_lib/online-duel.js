@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { normalizeAvatarSelection } from "./avatar-selection.js";
+import { generateBotChat, generateBotReaction, generateBotWrongGuess } from "./bot-ai.js";
 import { censorProfanity } from "./censor.js";
 import { HttpError } from "./http.js";
 import { listPlayableCatalogImages } from "./image-catalog.js";
@@ -19,21 +20,142 @@ const ROOM_STATUS_FINISHED = "finished";
 const PUBLIC_ROOM_MIN_PLAYERS = 2;
 const PUBLIC_ROOM_MAX_PLAYERS = 8;
 const PRIVATE_ROOM_MAX_PLAYERS = 8;
-const PUBLIC_LOBBY_COUNTDOWN_MS = 10 * 1000;
+const PUBLIC_LOBBY_COUNTDOWN_MS = 0;
 const QUEUE_STALE_MS = 2 * 60 * 1000;
 const QUEUE_HEARTBEAT_MS = 30 * 1000;
 const ROOM_PLAYER_HEARTBEAT_MS = 10 * 1000;
 const WAITING_ROOM_PLAYER_STALE_MS = 20 * 1000;
 const LIVE_ROOM_PLAYER_STALE_MS = 30 * 1000;
 const ROUND_COUNT = 3;
-const ROUND_COUNTDOWN_MS = 3000;
+const ROUND_COUNTDOWN_MS = 0;
 const ROUND_INTERMISSION_MS = 3500;
-const ROUND_STEP_MS = 30 * 1000;
-const ZOOM_LEVELS = [4.6, 3.2, 2.2, 1.45, 1];
-const ROUND_DURATION_MS = ROUND_STEP_MS * ZOOM_LEVELS.length;
+// Each zoom level lasts a different amount of time (most → least zoomed in)
+const ZOOM_STEP_DURATIONS_MS = [20000, 15000, 10000, 5000];
+const ZOOM_LEVELS = [4.6, 3.2, 2.2, 1.0];
+const ROUND_STEP_MS = ZOOM_STEP_DURATIONS_MS[0]; // kept for bot zoom-step index calc
+const ROUND_DURATION_MS = ZOOM_STEP_DURATIONS_MS.reduce((s, d) => s + d, 0);
 const RECENT_GUESSES_LIMIT = 6;
 const ROOM_GUESS_FEED_LIMIT = 16;
 const MIN_GUESS_GAP_MS = 700;
+
+// Bot constants
+const BOT_NAMES = ["Alex", "Jamie", "Jordan", "Sam", "Riley", "Taylor", "Morgan", "Casey", "Drew", "Quinn", "Avery", "Blake"];
+// Bot guess timing — uses a bimodal distribution: sometimes very fast, sometimes slow
+const BOT_GUESS_FAST_MIN_MS = 10 * 1000;
+const BOT_GUESS_FAST_MAX_MS = 18 * 1000;
+const BOT_GUESS_SLOW_MIN_MS = 28 * 1000;
+const BOT_GUESS_SLOW_MAX_MS = 45 * 1000;
+// After the bot reacts to a human message, it waits longer before its next guess
+const BOT_POST_INSULT_COOLDOWN_MS = 15 * 1000;
+const BOT_CORRECT_GUESS_MIN_STEP = 3; // bot guesses correctly starting at zoom step 3 (4th level)
+// Wrong guesses that look plausible for zoomed-in UW campus photos
+const BOT_WRONG_GUESSES = [
+  "Dana Porter", "Davis Centre", "SLC", "PAC", "CIF", "RCH", "E7", "E5", "QNC",
+  "Needles Hall", "Fed Hall", "BMH", "MC building", "Ring Road", "Village",
+  "REV", "Ron Eydt Village", "Earth Sciences", "Science Teaching Complex",
+  "Columbia Lake", "Waterloo Park", "WatCard", "Commissary", "goose fountain",
+  "Physics building", "Chemistry building", "Engineering building", "Math faculty",
+  "Student Life Centre", "Modern Languages", "Anthropology building", "Conrad Grebel",
+  "Renison", "St. Paul's", "Engineering 3", "Engineering 6",
+  "Laurel Creek", "DC library", "Optometry building", "Environment building",
+];
+
+/**
+ * Returns true if the guess looks like trash talk / chat rather than a genuine
+ * campus location guess. Used to decide whether the bot should react.
+ * A "real" guess typically references a known building, acronym, or place name.
+ * Chat messages tend to be greetings, taunts, filler words, or random phrases.
+ */
+/**
+ * Build a hangman-style letter hint for the answer.
+ * Returns a string like "_ _ _ _  _ _ _ _ _ _" with some letters progressively revealed.
+ * Words are separated by "  " (two spaces); letters within a word by " ".
+ */
+function buildLetterHint(answer, zoomStepIndex) {
+  if (!answer) return "";
+
+  const words = answer.split(" ");
+
+  // Collect all letter positions across all words as {wordIdx, charIdx}
+  const positions = [];
+  for (let w = 0; w < words.length; w++) {
+    for (let c = 0; c < words[w].length; c++) {
+      if (/[a-zA-Z0-9]/.test(words[w][c])) {
+        positions.push({ w, c });
+      }
+    }
+  }
+
+  // Deterministic shuffle using answer as seed (LCG)
+  let seed = 0;
+  for (let i = 0; i < answer.length; i++) {
+    seed = (Math.imul(31, seed) + answer.charCodeAt(i)) | 0;
+  }
+  const shuffled = [...positions];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    seed = (Math.imul(1664525, seed) + 1013904223) | 0;
+    const j = Math.abs(seed) % (i + 1);
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+
+  // Reveal progressively more letters per zoom step (0%, 25%, 50%, 75%)
+  const total = shuffled.length;
+  const revealFractions = [0, 0.25, 0.5, 0.75];
+  const fraction = revealFractions[Math.min(zoomStepIndex, revealFractions.length - 1)];
+  const revealCount = Math.floor(total * fraction);
+  const revealed = new Set(shuffled.slice(0, revealCount).map(({ w, c }) => `${w},${c}`));
+
+  // Build per-word hint strings
+  return words
+    .map((word, w) =>
+      Array.from(word)
+        .map((ch, c) => {
+          if (!/[a-zA-Z0-9]/.test(ch)) return ch; // keep hyphens, apostrophes etc.
+          return revealed.has(`${w},${c}`) ? ch.toLowerCase() : "_";
+        })
+        .join(" "),
+    )
+    .join("  ");
+}
+
+function looksLikeChatNotGuess(guess) {
+  if (!guess) return false;
+  const g = guess.trim().toLowerCase();
+
+  // Very short single-word fillers / reactions
+  const chatWords = new Set([
+    "lol", "lmao", "lmfao", "haha", "hahaha", "lololol", "gg", "ggs", "ez", "rip",
+    "hi", "hello", "hey", "yo", "sup", "wsg", "wsp", "wassup", "howdy",
+    "idk", "idc", "idek", "wtf", "omg", "bruh", "bro", "sis", "bestie",
+    "no", "nah", "nope", "yes", "yep", "yeah", "yup", "ok", "okay", "k",
+    "gg", "wp", "nice", "poggers", "pog", "based", "cringe", "mid",
+    "help", "what", "huh", "wait", "hmm", "ugh", "meh", "damn", "dang",
+    "stop", "quit", "leave", "go", "run", "skip", "pass",
+    "you", "me", "us", "them", "we",
+    "bot", "ai", "cheat", "cheater", "hacker",
+    "fr", "frfr", "ngl", "tbh", "imo", "smh", "ffs",
+    "good", "bad", "easy", "hard", "impossible",
+  ]);
+
+  // Single word — only chat if it's in the known chat set, otherwise might be a building acronym
+  const words = g.split(/\s+/);
+  if (words.length === 1) {
+    return chatWords.has(g);
+  }
+
+  // Multi-word: chat if it starts with a greeting/reaction pattern or contains no location-like nouns
+  const chatPrefixes = ["i think", "i dont", "i don't", "i give", "i quit", "i have", "i want",
+    "you are", "you're", "ur so", "this is", "that is", "what is", "where is",
+    "no way", "oh my", "come on", "let me", "let's go", "lets go",
+    "help me", "i have no", "i give up"];
+  if (chatPrefixes.some((p) => g.startsWith(p))) return true;
+
+  // If it contains any word from the chat set at the start, lean chat
+  if (chatWords.has(words[0])) return true;
+
+  // Otherwise assume it's a genuine location guess
+  return false;
+}
 
 export async function createPrivateOnlineDuelRoom({ origin, name, playerId, token, avatar }) {
   requireOnlineStorage();
@@ -162,10 +284,9 @@ export async function joinOnlineDuel({ origin, name, playerId, token, avatar, ro
   if (opponent) {
     const room = await createRoom(origin, [opponent, session], {
       type: ROOM_TYPE_PUBLIC,
-      status: ROOM_STATUS_WAITING,
+      status: ROOM_STATUS_LIVE,
       maxPlayers: PUBLIC_ROOM_MAX_PLAYERS,
       hostId: opponent.playerId,
-      lobbyStartsAt: new Date(Date.now() + PUBLIC_LOBBY_COUNTDOWN_MS).toISOString(),
     });
 
     await Promise.all([
@@ -177,29 +298,33 @@ export async function joinOnlineDuel({ origin, name, playerId, token, avatar, ro
     ]);
 
     return {
-      status: ROOM_STATUS_WAITING,
+      status: room.status,
       playerId: session.playerId,
       token: session.token,
       room: buildPublicRoomState(room, session.playerId, origin),
     };
   }
 
-  const queuedAt = new Date().toISOString();
-
-  await putJson(queueEntryKey(session.playerId), {
-    playerId: session.playerId,
-    token: session.token,
-    name: session.name,
-    avatar: session.avatar,
-    joinedAt: queuedAt,
-    updatedAt: queuedAt,
+  // No human opponents — pair with a bot and start immediately
+  const bot = createBotSession();
+  const room = await createRoom(origin, [session, bot], {
+    type: ROOM_TYPE_PUBLIC,
+    status: ROOM_STATUS_LIVE,
+    maxPlayers: PUBLIC_ROOM_MAX_PLAYERS,
+    hostId: session.playerId,
+    botPlayerId: bot.playerId,
   });
 
+  await Promise.all([
+    putJson(roomKey(room.id), room),
+    putJson(playerAssignmentKey(session.playerId), buildPlayerAssignment(room, session)),
+  ]);
+
   return {
-    status: "queued",
+    status: room.status,
     playerId: session.playerId,
     token: session.token,
-    queuedAt,
+    room: buildPublicRoomState(room, session.playerId, origin),
   };
 }
 
@@ -264,6 +389,28 @@ export async function getOnlineDuelState({ origin, playerId, token }) {
   };
 }
 
+export async function adminEndOnlineDuelRoom({ roomId }) {
+  requireOnlineStorage();
+
+  const id = normalizeId(roomId);
+  if (!id) throw new HttpError(400, "Room ID is required.");
+
+  const room = normalizeRoom(await getJson(roomKey(id)));
+  if (!room?.id) throw new HttpError(404, "Room not found.");
+
+  if (room.status === ROOM_STATUS_FINISHED) {
+    throw new HttpError(409, "Room is already finished.");
+  }
+
+  room.status = ROOM_STATUS_FINISHED;
+  room.finishedAt = new Date().toISOString();
+  room.endedReason = "admin";
+  room.updatedAt = new Date().toISOString();
+
+  await persistRoom(room);
+  return { ok: true };
+}
+
 export async function loadOnlineDuelAdminStats() {
   requireOnlineStorage();
 
@@ -312,6 +459,10 @@ export async function loadOnlineDuelAdminStats() {
 
   const waitingRooms = activeRooms.filter((room) => room.status === ROOM_STATUS_WAITING);
   const liveRooms = activeRooms.filter((room) => room.status === ROOM_STATUS_LIVE);
+  const publicWaiting = waitingRooms.filter((room) => room.type === ROOM_TYPE_PUBLIC);
+  const privateWaiting = waitingRooms.filter((room) => room.type === ROOM_TYPE_PRIVATE);
+  const publicLive = liveRooms.filter((room) => room.type === ROOM_TYPE_PUBLIC);
+  const privateLive = liveRooms.filter((room) => room.type === ROOM_TYPE_PRIVATE);
 
   return {
     updatedAt: new Date().toISOString(),
@@ -320,6 +471,10 @@ export async function loadOnlineDuelAdminStats() {
       activeGames: activeRooms.length,
       waitingRooms: waitingRooms.length,
       liveGames: liveRooms.length,
+      publicWaitingLobbies: publicWaiting.length,
+      privateWaitingLobbies: privateWaiting.length,
+      publicLiveGames: publicLive.length,
+      privateLiveGames: privateLive.length,
       queuedPlayers: queueEntries.length,
       waitingLobbyPlayers: waitingRooms.reduce((sum, room) => sum + room.playerCount, 0),
       playersInActiveGames: activeRooms.reduce((sum, room) => sum + room.playerCount, 0),
@@ -743,11 +898,20 @@ async function joinPublicRoom(origin, roomId, session) {
     [session.playerId]: 0,
   };
 
-  if (syncedRoom.players.length >= PUBLIC_ROOM_MIN_PLAYERS && !syncedRoom.lobbyStartsAt) {
-    syncedRoom.lobbyStartsAt = new Date(Date.now() + PUBLIC_LOBBY_COUNTDOWN_MS).toISOString();
+  const now = Date.now();
+
+  if (syncedRoom.status === ROOM_STATUS_WAITING && syncedRoom.players.length >= PUBLIC_ROOM_MIN_PLAYERS) {
+    syncedRoom.status = ROOM_STATUS_LIVE;
+    syncedRoom.currentRoundIndex = 0;
+    syncedRoom.currentRoundStartedAt = new Date(now + ROUND_COUNTDOWN_MS).toISOString();
+    syncedRoom.currentRoundResolvedAt = "";
+    syncedRoom.currentRoundWinnerId = "";
+    syncedRoom.currentRoundWinningGuess = "";
+    syncedRoom.currentRoundGuesses = {};
+    syncedRoom.lobbyStartsAt = "";
   }
 
-  syncedRoom.updatedAt = new Date().toISOString();
+  syncedRoom.updatedAt = new Date(now).toISOString();
 
   await Promise.all([
     persistRoom(syncedRoom),
@@ -766,6 +930,147 @@ function buildPlayerAssignment(room, session) {
     avatar: session.avatar,
     assignedAt: new Date().toISOString(),
   };
+}
+
+function createBotSession() {
+  const name = BOT_NAMES[Math.floor(Math.random() * BOT_NAMES.length)];
+  return {
+    playerId: randomUUID(),
+    token: randomUUID(),
+    name,
+    avatar: {
+      body: Math.floor(Math.random() * 8),
+      eyes: Math.floor(Math.random() * 8),
+      mouth: Math.floor(Math.random() * 8),
+      extra: Math.floor(Math.random() * 8),
+    },
+    isBot: true,
+  };
+}
+
+async function syncBotActions(room, now) {
+  if (!room.botPlayerId || room.status !== ROOM_STATUS_LIVE || room.currentRoundResolvedAt) {
+    return false;
+  }
+
+  const bot = room.players.find((p) => p.id === room.botPlayerId);
+  if (!bot) return false;
+
+  // Keep bot heartbeat alive
+  bot.lastSeenAt = new Date(now).toISOString();
+
+  const currentRound = room.rounds[room.currentRoundIndex];
+  if (!currentRound) return false;
+
+  const roundStartedAtMs = Date.parse(room.currentRoundStartedAt || "");
+  if (!Number.isFinite(roundStartedAtMs) || now < roundStartedAtMs) return false;
+
+  const elapsedMs = now - roundStartedAtMs;
+  const zoomStepIndex = zoomStepIndexForElapsed(elapsedMs);
+
+  // At step 3+ guess correctly to end the round (always fires regardless of human activity)
+  const lastActionAtMs = Date.parse(room.botLastActionAt || "");
+  if (zoomStepIndex >= BOT_CORRECT_GUESS_MIN_STEP) {
+    const isFast = Math.random() < 0.6;
+    const nextActionInterval = isFast
+      ? BOT_GUESS_FAST_MIN_MS + Math.floor(Math.random() * (BOT_GUESS_FAST_MAX_MS - BOT_GUESS_FAST_MIN_MS))
+      : BOT_GUESS_SLOW_MIN_MS + Math.floor(Math.random() * (BOT_GUESS_SLOW_MAX_MS - BOT_GUESS_SLOW_MIN_MS));
+    if (Number.isFinite(lastActionAtMs) && now - lastActionAtMs < nextActionInterval) return false;
+
+    const botGuesses = Array.isArray(room.currentRoundGuesses?.[room.botPlayerId])
+      ? room.currentRoundGuesses[room.botPlayerId]
+      : [];
+    room.currentRoundGuesses = {
+      ...room.currentRoundGuesses,
+      [room.botPlayerId]: trimGuessHistory([
+        ...botGuesses,
+        { guess: currentRound.answer, correct: true, at: new Date(now).toISOString() },
+      ]),
+    };
+    resolveCurrentRound(room, {
+      winnerId: room.botPlayerId,
+      winningGuess: currentRound.answer,
+      resolvedAt: now,
+      reason: "guess",
+    });
+    room.botLastActionAt = new Date(now).toISOString();
+    return true;
+  }
+
+  // All other bot actions only fire if the human has said something since the bot last acted
+  const lastHumanActivityMs = Math.max(
+    ...Object.entries(room.currentRoundGuesses || {})
+      .filter(([pid]) => pid !== room.botPlayerId)
+      .flatMap(([, entries]) => (Array.isArray(entries) ? entries : []))
+      .map((g) => Date.parse(g.at || "") || 0),
+    ...(room.roomChatMessages || [])
+      .filter((m) => m.playerId !== room.botPlayerId)
+      .map((m) => Date.parse(m.at || "") || 0),
+    0,
+  );
+
+  // No human activity yet, or bot already responded to the latest human message
+  if (lastHumanActivityMs === 0 || (Number.isFinite(lastActionAtMs) && lastActionAtMs > lastHumanActivityMs)) {
+    return false;
+  }
+
+  // Small delay after human message before bot responds
+  const isFast = Math.random() < 0.6;
+  const replyDelay = isFast
+    ? BOT_GUESS_FAST_MIN_MS + Math.floor(Math.random() * (BOT_GUESS_FAST_MAX_MS - BOT_GUESS_FAST_MIN_MS))
+    : BOT_GUESS_SLOW_MIN_MS + Math.floor(Math.random() * (BOT_GUESS_SLOW_MAX_MS - BOT_GUESS_SLOW_MIN_MS));
+  if (now - lastHumanActivityMs < replyDelay) return false;
+
+  // Collect unresponded human messages since last bot action
+  const sinceMs = Number.isFinite(lastActionAtMs) ? lastActionAtMs : 0;
+  const humanGuesses = Object.entries(room.currentRoundGuesses || {})
+    .filter(([pid]) => pid !== room.botPlayerId)
+    .flatMap(([, entries]) => (Array.isArray(entries) ? entries : []))
+    .filter((g) => Date.parse(g.at || "") > sinceMs);
+
+  // --- React to human chat ---
+  const latestHumanChat = humanGuesses
+    .filter((g) => !g.correct && looksLikeChatNotGuess(g.guess))
+    .sort((a, b) => Date.parse(b.at) - Date.parse(a.at))[0];
+
+  if (latestHumanChat) {
+    const reaction = await generateBotReaction({ humanMessage: latestHumanChat.guess });
+    if (!Array.isArray(room.roomChatMessages)) room.roomChatMessages = [];
+    room.roomChatMessages = [
+      ...room.roomChatMessages,
+      { playerId: room.botPlayerId, name: bot.name, text: reaction, at: new Date(now).toISOString() },
+    ].slice(-20);
+    room.botLastActionAt = new Date(now).toISOString();
+    return true;
+  }
+
+  // --- React to human single-word location guess with a bot guess (~60% chance) ---
+  const latestHumanGuess = humanGuesses
+    .filter((g) => {
+      if (g.correct || looksLikeChatNotGuess(g.guess)) return false;
+      return g.guess.trim().split(/\s+/).length === 1;
+    })
+    .sort((a, b) => Date.parse(b.at) - Date.parse(a.at))[0];
+
+  if (latestHumanGuess && Math.random() < 0.6) {
+    const guessText = await generateBotWrongGuess({ zoomStepIndex });
+    if (guessText) {
+      const botGuesses = Array.isArray(room.currentRoundGuesses?.[room.botPlayerId])
+        ? room.currentRoundGuesses[room.botPlayerId]
+        : [];
+      room.currentRoundGuesses = {
+        ...room.currentRoundGuesses,
+        [room.botPlayerId]: trimGuessHistory([
+          ...botGuesses,
+          { guess: guessText, correct: false, at: new Date(now).toISOString() },
+        ]),
+      };
+    }
+    room.botLastActionAt = new Date(now).toISOString();
+    return true;
+  }
+
+  return false;
 }
 
 async function createRoom(origin, players, options = {}) {
@@ -802,6 +1107,7 @@ async function createRoom(origin, players, options = {}) {
       token: player.token,
       name: player.name,
       avatar: normalizeAvatarSelection(player.avatar),
+      isBot: Boolean(player.isBot),
       joinedAt: new Date(now).toISOString(),
       lastSeenAt: new Date(now).toISOString(),
     })),
@@ -818,6 +1124,10 @@ async function createRoom(origin, players, options = {}) {
     finishedAt: "",
     endedReason: "",
     winsRecordedAt: "",
+    botPlayerId: normalizeId(options.botPlayerId) || "",
+    botLastActionAt: "",
+    botLastInsultAt: "",
+    roomChatMessages: [],
   };
 }
 
@@ -826,7 +1136,20 @@ async function syncRoom(room) {
   const nextRoom = normalizeRoom(room);
   let changed = false;
 
+  // Refresh bot heartbeat before staleness check so it's never pruned
+  if (nextRoom.botPlayerId && nextRoom.status !== ROOM_STATUS_FINISHED) {
+    const bot = nextRoom.players.find((p) => p.id === nextRoom.botPlayerId);
+    if (bot) {
+      bot.lastSeenAt = new Date(now).toISOString();
+    }
+  }
+
   if (await pruneStaleRoomPlayers(nextRoom, now)) {
+    changed = true;
+  }
+
+  // Run bot actions — may submit a guess or resolve the round
+  if (await syncBotActions(nextRoom, now)) {
     changed = true;
   }
 
@@ -925,6 +1248,8 @@ async function syncRoom(room) {
       nextRoom.currentRoundWinnerId = "";
       nextRoom.currentRoundWinningGuess = "";
       nextRoom.currentRoundGuesses = {};
+      nextRoom.botLastActionAt = "";
+      nextRoom.botLastInsultAt = "";
       nextRoom.updatedAt = new Date(now).toISOString();
       changed = true;
       continue;
@@ -1035,7 +1360,7 @@ function resolveMatchWinnerId(room) {
 async function recordMatchWin(room, winnerId) {
   const winner = room.players.find((player) => player.id === winnerId);
 
-  if (!winner?.name) {
+  if (!winner?.name || winner.isBot) {
     return;
   }
 
@@ -1107,13 +1432,9 @@ function buildPublicRoomState(room, playerId, origin) {
       : 0;
   const zoomStepIndex = room.currentRoundResolvedAt
     ? ZOOM_LEVELS.length - 1
-    : Math.min(Math.floor(elapsedMs / ROUND_STEP_MS), ZOOM_LEVELS.length - 1);
+    : zoomStepIndexForElapsed(elapsedMs);
   const nextZoomInMs =
-    room.currentRoundResolvedAt || countdownMs
-      ? 0
-      : zoomStepIndex < ZOOM_LEVELS.length - 1
-        ? Math.max(0, ROUND_STEP_MS - (elapsedMs % ROUND_STEP_MS))
-        : 0;
+    room.currentRoundResolvedAt || countdownMs ? 0 : nextZoomInMsForElapsed(elapsedMs, zoomStepIndex);
   const endsInMs = room.currentRoundResolvedAt
     ? 0
     : Math.max(0, ROUND_DURATION_MS - elapsedMs) + countdownMs;
@@ -1156,7 +1477,8 @@ function buildPublicRoomState(room, playerId, origin) {
           startedAt: room.currentRoundStartedAt,
           zoomScale: room.currentRoundResolvedAt ? 1 : ZOOM_LEVELS[zoomStepIndex],
           zoomLevels: ZOOM_LEVELS,
-          zoomStepMs: ROUND_STEP_MS,
+          zoomStepMs: ZOOM_STEP_DURATIONS_MS[0],
+          zoomStepDurationsMs: ZOOM_STEP_DURATIONS_MS,
           roundDurationMs: ROUND_DURATION_MS,
           intermissionMs: ROUND_INTERMISSION_MS,
           countdownMs,
@@ -1167,9 +1489,10 @@ function buildPublicRoomState(room, playerId, origin) {
           winnerName: resolvePlayerName(room, room.currentRoundWinnerId),
           winningGuess: room.currentRoundWinningGuess,
           answer: room.currentRoundResolvedAt ? currentRound.answer : "",
+          letterHint: room.currentRoundResolvedAt ? "" : buildLetterHint(currentRound.answer, zoomStepIndex),
           youGuesses: getPublicGuesses(room.currentRoundGuesses?.[playerId]),
           opponentGuesses: getPublicGuesses(room.currentRoundGuesses?.[primaryOpponent?.id]),
-          roomGuesses: getPublicRoomGuesses(room.currentRoundGuesses, room.players, playerId),
+          roomGuesses: getPublicRoomGuesses(room.currentRoundGuesses, room.players, playerId, room.roomChatMessages),
         }
       : null,
     completedRounds: room.completedRounds.map((round) => ({
@@ -1241,6 +1564,7 @@ function buildPublicPlayer(player, scores, currentPlayerId = "") {
     score: normalizeScore(scores[player.id]),
     joinedAt: player.joinedAt || "",
     isYou: currentPlayerId ? player.id === currentPlayerId : false,
+    // isBot intentionally omitted — keeps the bot indistinguishable client-side
   };
 }
 
@@ -1253,28 +1577,36 @@ function getPublicGuesses(guesses) {
     : [];
 }
 
-function getPublicRoomGuesses(guessesByPlayer, players, currentPlayerId) {
-  if (!guessesByPlayer || typeof guessesByPlayer !== "object") {
-    return [];
-  }
-
+function getPublicRoomGuesses(guessesByPlayer, players, currentPlayerId, chatMessages = []) {
   const playerLookup = new Map(players.map((player) => [player.id, player.name]));
   const guesses = [];
 
-  for (const [playerId, entries] of Object.entries(guessesByPlayer)) {
-    if (!Array.isArray(entries)) {
-      continue;
+  if (guessesByPlayer && typeof guessesByPlayer === "object") {
+    for (const [playerId, entries] of Object.entries(guessesByPlayer)) {
+      if (!Array.isArray(entries)) continue;
+      const playerName = playerLookup.get(playerId) || "Player";
+      for (const entry of entries) {
+        guesses.push({
+          playerId,
+          playerName,
+          guess: entry.guess,
+          correct: Boolean(entry.correct),
+          at: entry.at || "",
+        });
+      }
     }
+  }
 
-    const playerName = playerLookup.get(playerId) || "Player";
-
-    for (const entry of entries) {
+  // Merge in bot chat messages
+  if (Array.isArray(chatMessages)) {
+    for (const msg of chatMessages) {
       guesses.push({
-        playerId,
-        playerName,
-        guess: entry.guess,
-        correct: Boolean(entry.correct),
-        at: entry.at || "",
+        playerId: msg.playerId,
+        playerName: msg.name || playerLookup.get(msg.playerId) || "Player",
+        guess: msg.text,
+        correct: false,
+        isChat: true,
+        at: msg.at || "",
       });
     }
   }
@@ -1595,6 +1927,7 @@ function normalizeRoom(value) {
             token: normalizeId(player.token),
             name: normalizeName(player?.name),
             avatar: normalizeAvatarSelection(player?.avatar),
+            isBot: Boolean(player?.isBot),
             joinedAt: player?.joinedAt || new Date().toISOString(),
             lastSeenAt: player?.lastSeenAt || player?.joinedAt || new Date().toISOString(),
           }))
@@ -1617,6 +1950,10 @@ function normalizeRoom(value) {
     winsRecordedAt: String(value?.winsRecordedAt || ""),
     updatedAt: value?.updatedAt || new Date().toISOString(),
     createdAt: value?.createdAt || new Date().toISOString(),
+    botPlayerId: normalizeId(value?.botPlayerId) || "",
+    botLastActionAt: String(value?.botLastActionAt || ""),
+    botLastInsultAt: String(value?.botLastInsultAt || ""),
+    roomChatMessages: Array.isArray(value?.roomChatMessages) ? value.roomChatMessages : [],
   };
 }
 
@@ -1654,6 +1991,21 @@ function normalizeId(value) {
 
 function normalizeName(value) {
   return censorProfanity(value, { maxLength: 32 });
+}
+
+function zoomStepIndexForElapsed(elapsedMs) {
+  let cumulative = 0;
+  for (let i = 0; i < ZOOM_STEP_DURATIONS_MS.length; i++) {
+    cumulative += ZOOM_STEP_DURATIONS_MS[i];
+    if (elapsedMs < cumulative) return i;
+  }
+  return ZOOM_STEP_DURATIONS_MS.length - 1;
+}
+
+function nextZoomInMsForElapsed(elapsedMs, stepIndex) {
+  if (stepIndex >= ZOOM_STEP_DURATIONS_MS.length - 1) return 0;
+  const cumulativeEnd = ZOOM_STEP_DURATIONS_MS.slice(0, stepIndex + 1).reduce((s, d) => s + d, 0);
+  return Math.max(0, cumulativeEnd - elapsedMs);
 }
 
 function normalizeGuess(value) {

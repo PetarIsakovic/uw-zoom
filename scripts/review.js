@@ -277,10 +277,12 @@ function renderOnlineStats(payload) {
   const summaryItems = [
     ["Total games played", String(payload.totals.totalGamesPlayed || 0)],
     ["Active games", String(payload.totals.activeGames || 0)],
+    ["Public lobbies (waiting)", String(payload.totals.publicWaitingLobbies || 0)],
+    ["Private lobbies (waiting)", String(payload.totals.privateWaitingLobbies || 0)],
+    ["Public live games", String(payload.totals.publicLiveGames || 0)],
+    ["Private live games", String(payload.totals.privateLiveGames || 0)],
     ["Queued players", String(payload.totals.queuedPlayers || 0)],
-    ["Waiting in lobbies", String(payload.totals.waitingLobbyPlayers || 0)],
     ["Players in active games", String(payload.totals.playersInActiveGames || 0)],
-    ["Live games", String(payload.totals.liveGames || 0)],
   ];
 
   for (const [label, value] of summaryItems) {
@@ -385,10 +387,31 @@ function renderOnlineStats(payload) {
               ? `<span class="review-inline-badge">Starts ${room.lobbyStartsAt ? escapeHtml(formatDate(room.lobbyStartsAt)) : "when ready"}</span>`
               : `<span class="review-inline-badge">Round ${escapeHtml(String(room.roundIndex || 0))}/${escapeHtml(String(room.roundCount || 0))}</span>`
           }
+          <button class="button button-destructive review-end-game-button" data-room-id="${escapeHtml(room.id)}" type="button">End game</button>
         </div>
       </div>
       <div class="review-online-player-list">${playerRows}</div>
     `;
+
+    roomCard.querySelector(".review-end-game-button")?.addEventListener("click", async (e) => {
+      const btn = e.currentTarget;
+      if (!confirm(`End this game (Room ${room.id})? Players will be kicked out.`)) return;
+      btn.disabled = true;
+      btn.textContent = "Ending...";
+      try {
+        await requestJson("/api/admin-online-rooms", {
+          method: "POST",
+          headers: adminHeaders(),
+          body: { roomId: room.id },
+        });
+        btn.textContent = "Ended";
+        roomCard.style.opacity = "0.5";
+      } catch (err) {
+        btn.disabled = false;
+        btn.textContent = "End game";
+        alert(`Failed: ${err.message}`);
+      }
+    });
 
     roomsGrid.append(roomCard);
   }

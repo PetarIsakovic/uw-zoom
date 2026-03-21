@@ -33,8 +33,8 @@ const queuePlayersList = document.querySelector("#online-queue-players-list");
 const matchSection = document.querySelector("#online-match");
 const summarySection = document.querySelector("#online-summary");
 const scoreboard = document.querySelector("#online-scoreboard");
-const roundLabel = document.querySelector("#online-round-label");
 const timerLabel = document.querySelector("#online-timer-label");
+const timerContext = document.querySelector("#online-timer-context");
 const roundStatus = document.querySelector("#online-round-status");
 const roundHistory = document.querySelector("#online-round-history");
 const yourGuessList = document.querySelector("#your-guess-list");
@@ -47,9 +47,16 @@ const guessButton = document.querySelector("#online-guess-button");
 const summaryTitle = document.querySelector("#online-summary-title");
 const summaryCopy = document.querySelector("#online-summary-copy");
 const findAnotherMatchButton = document.querySelector("#find-another-match-button");
+const settingsButton = document.querySelector("#online-settings-button");
+const settingsPopup = document.querySelector("#online-settings-popup");
+const settingsClose = document.querySelector("#online-settings-close");
+const settingsLeave = document.querySelector("#online-settings-leave");
+const soundToggle = document.querySelector("#online-sound-toggle");
+const volumeSlider = document.querySelector("#online-volume-slider");
 const gameImage = document.querySelector("#online-game-image");
 const imageLoading = document.querySelector("#online-image-loading");
 const imageLoadingCopy = document.querySelector("#online-image-loading-copy");
+const letterHintEl = document.querySelector("#online-letter-hint");
 
 const POLL_INTERVAL_QUEUED_MS = 2000;
 const POLL_INTERVAL_WAITING_MS = 1000;
@@ -99,9 +106,99 @@ const state = {
   queueTitleTick: 0,
   queueTitleTimer: 0,
   pendingRoomGuesses: [],
+  soundEnabled: true,
+  volume: 80,
+  soundInitialized: false,
+  soundLastPlayerCount: 0,
+  soundLastRoundNumber: null,
+  soundLastResolvedAt: null,
+  soundLastGuessCount: 0,
+  soundLastTimerSeconds: null,
 };
 
-bootstrap();
+const SOUND_NAMES = ["join", "leave", "playerGuessed", "roundEndFailure", "roundEndSuccess", "roundStart", "tick"];
+
+function loadSounds() {
+  // Preload by creating throwaway Audio objects so files are cached by the browser
+  for (const name of SOUND_NAMES) {
+    const audio = new Audio(`/assets/sound-effects/${name}.ogg`);
+    audio.preload = "auto";
+  }
+}
+
+function playSound(name) {
+  if (!state.soundEnabled) return;
+  if (!SOUND_NAMES.includes(name)) return;
+  const audio = new Audio(`/assets/sound-effects/${name}.ogg`);
+  audio.volume = state.volume / 100;
+  audio.play().catch(() => {});
+}
+
+function resetSoundTracking() {
+  state.soundInitialized = false;
+}
+
+function detectAndPlaySounds(room, snapshot) {
+  const round = room.currentRound;
+  const roundNumber = round?.roundNumber ?? null;
+  const resolvedAt = round?.resolvedAt ?? null;
+  const playerCount = room.playerCount ?? 0;
+  const guessCount = getVisibleRoomGuesses(room).filter((g) => !g.isChat).length;
+  const timerSeconds = snapshot.timerCount ?? null;
+
+  if (!state.soundInitialized) {
+    state.soundLastPlayerCount = playerCount;
+    state.soundLastRoundNumber = roundNumber;
+    state.soundLastResolvedAt = resolvedAt;
+    state.soundLastGuessCount = guessCount;
+    state.soundLastTimerSeconds = timerSeconds;
+    state.soundInitialized = true;
+    return;
+  }
+
+  if (playerCount > state.soundLastPlayerCount) {
+    playSound("join");
+  }
+  state.soundLastPlayerCount = playerCount;
+
+  if (roundNumber !== null && roundNumber !== state.soundLastRoundNumber && !resolvedAt) {
+    playSound("roundStart");
+  }
+  state.soundLastRoundNumber = roundNumber;
+
+  if (resolvedAt && resolvedAt !== state.soundLastResolvedAt) {
+    playSound(round?.winnerId ? "roundEndSuccess" : "roundEndFailure");
+  }
+  state.soundLastResolvedAt = resolvedAt;
+
+  if (guessCount > state.soundLastGuessCount) {
+    playSound("playerGuessed");
+  }
+  state.soundLastGuessCount = guessCount;
+
+  const isFinalCountdown = snapshot.timerContext === "Round ends in";
+  if (isFinalCountdown && timerSeconds !== null && timerSeconds !== state.soundLastTimerSeconds) {
+    playSound("tick");
+  }
+  state.soundLastTimerSeconds = timerSeconds;
+}
+
+// On the dedicated /play-online/ page, auto-bootstrap.
+// On the landing page (SPA mode), wait for the start event.
+if (document.body.classList.contains("play-online-page")) {
+  bootstrap();
+} else {
+  document.addEventListener("uwzoom:start-play-online", () => {
+    // Show the loading screen immediately — before play-online-root is ever revealed
+    const startupLoading = document.getElementById("landing-startup-loading");
+    const startupTitle = startupLoading?.querySelector(".landing-startup-title");
+    if (startupTitle) startupTitle.textContent = "Finding a match...";
+    if (startupLoading) startupLoading.removeAttribute("hidden");
+    document.body.dataset.ready = "false";
+    // play-online-root stays hidden until clearJoiningState() is called
+    bootstrap();
+  });
+}
 
 window.addEventListener("pagehide", () => {
   leaveSessionOnExit();
@@ -126,6 +223,7 @@ window.addEventListener("pageshow", (event) => {
 
 entryForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
+  playSound("roundEndSuccess");
   await joinMatch();
 });
 
@@ -187,12 +285,62 @@ findAnotherMatchButton?.addEventListener("click", async () => {
   await joinMatch();
 });
 
+settingsButton?.addEventListener("click", (event) => {
+  event.stopPropagation();
+  const isOpen = !settingsPopup.hidden;
+  settingsPopup.hidden = isOpen;
+  settingsButton.setAttribute("aria-expanded", String(!isOpen));
+});
+
+settingsClose?.addEventListener("click", () => {
+  settingsPopup.hidden = true;
+  settingsButton?.setAttribute("aria-expanded", "false");
+});
+
+settingsLeave?.addEventListener("click", async () => {
+  settingsPopup.hidden = true;
+  settingsButton?.setAttribute("aria-expanded", "false");
+  await leaveCurrentSession();
+});
+
+soundToggle?.addEventListener("change", () => {
+  state.soundEnabled = soundToggle.checked;
+  if (volumeSlider) {
+    volumeSlider.disabled = !state.soundEnabled;
+  }
+});
+
+volumeSlider?.addEventListener("input", () => {
+  state.volume = Number(volumeSlider.value);
+});
+
+document.addEventListener("click", (event) => {
+  if (settingsPopup && !settingsPopup.hidden && !settingsPopup.contains(event.target) && event.target !== settingsButton && !settingsButton?.contains(event.target)) {
+    settingsPopup.hidden = true;
+    settingsButton?.setAttribute("aria-expanded", "false");
+  }
+});
+
+// In embedded/SPA mode, intercept "Home" and "Back Home" links to avoid page reload
+if (!document.body.classList.contains("play-online-page")) {
+  document.getElementById("play-online-root")?.addEventListener("click", (event) => {
+    const link = event.target.closest("a[href='/']");
+    if (link) {
+      event.preventDefault();
+      leaveCurrentSession();
+    }
+  });
+}
+
 async function bootstrap() {
   hydrateSessionFromUrl();
   void loadWordBank();
   void ensureAvatarIconAssets().catch(() => {});
+  loadSounds();
 
-  if (hasActiveSession()) {
+  // When auto-joining (e.g. user clicked Play on landing), skip refreshState and go straight
+  // to joinMatch — the join API will reuse or replace the existing session server-side.
+  if (hasActiveSession() && !state.shouldAutoJoin) {
     await refreshState();
     return;
   }
@@ -204,7 +352,6 @@ async function bootstrap() {
       state.shouldAutoCreatePrivateRoom = false;
       await createPrivateRoom();
     } else {
-      renderQueued();
       await joinMatch();
     }
 
@@ -220,29 +367,43 @@ async function bootstrap() {
 
 function hydrateSessionFromUrl() {
   const params = new URLSearchParams(window.location.search);
-  state.playerId = params.get("playerId") || "";
-  state.token = params.get("token") || "";
-  state.shouldAutoJoin = params.get(AUTO_JOIN_QUERY_KEY) === "1";
-  state.shouldAutoCreatePrivateRoom = params.get(CREATE_PRIVATE_ROOM_QUERY_KEY) === "1";
+
+  let handoff = null;
+  try {
+    const raw = sessionStorage.getItem("uwzoom-play-handoff");
+    if (raw) {
+      handoff = JSON.parse(raw);
+      sessionStorage.removeItem("uwzoom-play-handoff");
+    }
+  } catch {}
+
+  state.playerId = params.get("playerId") || sessionStorage.getItem("uwzoom-player-id") || "";
+  state.token = params.get("token") || sessionStorage.getItem("uwzoom-player-token") || "";
+  state.shouldAutoJoin = Boolean(handoff?.autoplay) || params.get(AUTO_JOIN_QUERY_KEY) === "1";
+  state.shouldAutoCreatePrivateRoom =
+    Boolean(handoff?.createPrivateRoom) || params.get(CREATE_PRIVATE_ROOM_QUERY_KEY) === "1";
   state.requestedRoomId = params.get(ROOM_QUERY_KEY) || "";
 
-  if (playerNameInput) {
-    playerNameInput.value = normalizeName(params.get("name") || "");
+  if (handoff?.avatar) {
+    state.avatar = handoff.avatar;
   }
 
-  if (state.shouldAutoJoin) {
-    const url = new URL(window.location.href);
-    url.searchParams.delete(AUTO_JOIN_QUERY_KEY);
-    url.searchParams.delete(CREATE_PRIVATE_ROOM_QUERY_KEY);
-    window.history.replaceState({}, "", `${url.pathname}${url.search}`);
+  if (playerNameInput) {
+    playerNameInput.value = normalizeName(handoff?.name || params.get("name") || "");
   }
+
+  const roomId = params.get(ROOM_QUERY_KEY) || "";
+  window.history.replaceState({}, "", roomId ? `/?room=${roomId}` : "/");
 }
 
 function syncSessionUrl() {
   const url = new URL(window.location.href);
 
-  url.searchParams.delete(AUTO_JOIN_QUERY_KEY);
-  url.searchParams.delete(CREATE_PRIVATE_ROOM_QUERY_KEY);
+  // Strip all session/handoff params from URL — state lives in sessionStorage
+  for (const key of ["autoplay", "createPrivateRoom", "playerId", "token", "name",
+                      "avatarBody", "avatarEyes", "avatarMouth", "avatarExtra"]) {
+    url.searchParams.delete(key);
+  }
 
   if (state.requestedRoomId) {
     url.searchParams.set(ROOM_QUERY_KEY, state.requestedRoomId);
@@ -250,15 +411,19 @@ function syncSessionUrl() {
     url.searchParams.delete(ROOM_QUERY_KEY);
   }
 
-  if (state.playerId && state.token) {
-    url.searchParams.set("playerId", state.playerId);
-    url.searchParams.set("token", state.token);
-  } else {
-    url.searchParams.delete("playerId");
-    url.searchParams.delete("token");
-  }
+  try {
+    if (state.playerId && state.token) {
+      sessionStorage.setItem("uwzoom-player-id", state.playerId);
+      sessionStorage.setItem("uwzoom-player-token", state.token);
+    } else {
+      sessionStorage.removeItem("uwzoom-player-id");
+      sessionStorage.removeItem("uwzoom-player-token");
+    }
+  } catch {}
 
-  window.history.replaceState({}, "", `${url.pathname}${url.search}`);
+  // Keep the URL clean — always show "/" (or "/?room=..." for shareable private rooms)
+  const roomParam = url.searchParams.get(ROOM_QUERY_KEY);
+  window.history.replaceState({}, "", roomParam ? `/?room=${roomParam}` : "/");
 }
 
 async function loadWordBank() {
@@ -270,18 +435,37 @@ async function loadWordBank() {
   }
 }
 
+function renderJoining() {
+  playerNameInput.disabled = true;
+
+  if (!document.body.classList.contains("play-online-page")) {
+    // SPA mode: loading screen already shown by the uwzoom:start-play-online event listener
+    return;
+  }
+
+  // Standalone play-online page fallback
+  heroSection.hidden = true;
+  joinSection.hidden = true;
+  lobbySection.hidden = true;
+  queueSection.hidden = false;
+  queueSection.classList.add("play-online-queue-joining");
+  matchSection.hidden = true;
+  summarySection.hidden = true;
+  leaveMatchButton.hidden = true;
+  joinMatchButton.hidden = true;
+  createPrivateRoomButton.hidden = true;
+  startRoomButton.hidden = true;
+}
+
 async function joinMatch() {
   const playerName = ensurePlayerName();
+
+  renderJoining();
 
   try {
     setBusy(true);
     state.exitCleanupSent = false;
     clearPendingOnlineLeave();
-    setStatus(
-      onlineStatus,
-      state.requestedRoomId ? "Joining private room..." : "Finding another player...",
-      "default",
-    );
 
     const payload = await requestJson("/api/online-duel-join", {
       method: "POST",
@@ -390,6 +574,10 @@ async function submitGuess() {
     return;
   }
 
+  if (guessInput?.dataset.canGuess !== "true") {
+    return;
+  }
+
   const guess = normalizeGuessDisplay(guessInput?.value || "");
 
   if (!guess) {
@@ -403,7 +591,6 @@ async function submitGuess() {
   try {
     pushPendingRoomGuess(pendingEntry);
     guessForm.reset();
-    guessInput.disabled = true;
     guessButton.disabled = true;
     clearInlineSuggestion();
     rerenderActiveRoom();
@@ -424,7 +611,6 @@ async function submitGuess() {
     removePendingRoomGuess(pendingEntry.localId);
     rerenderActiveRoom();
     guessInput.value = guess;
-    guessInput.disabled = false;
     updateAutocomplete();
     guessInput.focus();
     guessInput.setSelectionRange(guessInput.value.length, guessInput.value.length);
@@ -439,6 +625,8 @@ async function leaveCurrentSession() {
     renderIdle();
     return;
   }
+
+  playSound("leave");
 
   try {
     setBusy(true);
@@ -459,8 +647,21 @@ async function leaveCurrentSession() {
   }
 }
 
+function clearJoiningState() {
+  queueSection.classList.remove("play-online-queue-joining");
+  // Restore play-online-root and hide landing-root if we used it for the joining screen
+  if (!document.body.classList.contains("play-online-page")) {
+    // Hide all sections before revealing play-online-root to avoid any flash
+    heroSection.hidden = true;
+    document.getElementById("landing-root")?.setAttribute("hidden", "");
+    document.getElementById("play-online-root")?.removeAttribute("hidden");
+    document.body.dataset.ready = "true";
+  }
+}
+
 function renderPayload(payload) {
   clearInitialIntroSkip();
+  clearJoiningState();
   state.latestPayload = payload;
 
   if (payload.room?.you?.name) {
@@ -507,11 +708,22 @@ function renderPayload(payload) {
 }
 
 function renderIdle(options = {}) {
+  document.body.classList.remove("play-online-in-game");
   clearInitialIntroSkip();
-  const { preserveStatus = false } = options;
+  clearJoiningState();
   state.latestPayload = null;
   clearPoll();
   clearRoomTicker();
+  stopQueueTitleAnimation();
+
+  // In SPA/embedded mode on the landing page, just return to the landing UI
+  if (!document.body.classList.contains("play-online-page")) {
+    document.getElementById("play-online-root")?.setAttribute("hidden", "");
+    document.getElementById("landing-root")?.removeAttribute("hidden");
+    return;
+  }
+
+  const { preserveStatus = false } = options;
   heroSection.hidden = false;
   joinSection.hidden = false;
   lobbySection.hidden = true;
@@ -525,13 +737,11 @@ function renderIdle(options = {}) {
   roomLinkRow.hidden = true;
   playerNameInput.disabled = false;
   guessButton.disabled = true;
-  guessInput.disabled = true;
   clearInlineSuggestion();
   populateRoomLink("");
   roomRoster?.replaceChildren();
   clearQueuePlayers();
   scoreboard?.replaceChildren();
-  stopQueueTitleAnimation();
 
   if (!preserveStatus) {
     setStatus(
@@ -545,6 +755,7 @@ function renderIdle(options = {}) {
 }
 
 function renderQueued() {
+  resetSoundTracking();
   clearRoomTicker();
   heroSection.hidden = true;
   joinSection.hidden = true;
@@ -559,7 +770,13 @@ function renderQueued() {
   playerNameInput.disabled = true;
   state.waitingForFirstImageReveal = false;
   state.hasRevealedLiveMatch = false;
-  clearQueuePlayers();
+  const selfPlayer = {
+    id: state.playerId,
+    name: playerNameInput?.value?.trim() || "You",
+    avatar: state.avatar,
+    isYou: true,
+  };
+  renderQueuePlayers([selfPlayer], state.playerId);
   updateQueueCopy("Finding a match...", "Looking for another player right now.");
 }
 
@@ -632,6 +849,7 @@ function renderWaitingRoom(room) {
 }
 
 function renderLive(room) {
+  document.body.classList.add("play-online-in-game");
   stopQueueTitleAnimation();
   const showSingleLoadingScreen = !state.hasRevealedLiveMatch && shouldHoldLiveReveal(room);
 
@@ -667,6 +885,8 @@ function renderLive(room) {
 }
 
 function renderFinished(room) {
+  document.body.classList.remove("play-online-in-game");
+  resetSoundTracking();
   stopQueueTitleAnimation();
   heroSection.hidden = true;
   joinSection.hidden = true;
@@ -693,7 +913,6 @@ function renderRoom(room) {
     return;
   }
 
-  roundLabel.textContent = `Round ${Math.min(room.roundIndex, room.roundCount)} of ${room.roundCount}`;
   renderScoreboard(room.players || [], room.hostId || "");
   renderRoundHistory(room.completedRounds || []);
   renderGuessHistory(yourGuessList, room.currentRound?.youGuesses || [], "No guesses yet.");
@@ -711,10 +930,17 @@ function updateRoomSnapshot(room = state.latestPayload?.room) {
   }
 
   const snapshot = deriveRoundSnapshot(room);
-  timerLabel.textContent = snapshot.timerLabel;
+  timerLabel.textContent = snapshot.timerCount !== null ? String(snapshot.timerCount) : "";
+  if (timerContext) timerContext.textContent = snapshot.timerContext;
   roundStatus.textContent = snapshot.statusText;
   updateImageStage(room.currentRound, snapshot.zoomScale, snapshot.overlayText);
   updateGuessFormAvailability(snapshot);
+  detectAndPlaySounds(room, snapshot);
+  if (letterHintEl) {
+    const hint = room.currentRound?.letterHint || "";
+    letterHintEl.textContent = hint;
+    letterHintEl.hidden = !hint;
+  }
 
   if (room.status === "live") {
     syncLiveScreen(room, snapshot);
@@ -758,7 +984,8 @@ function updateWaitingRoomSnapshot(room = state.latestPayload?.room) {
 function deriveRoundSnapshot(room) {
   if (room.status === "waiting") {
     return {
-      timerLabel: "Waiting for host",
+      timerCount: null,
+      timerContext: "Waiting for host",
       statusText: room.isHost
         ? "Start the room whenever everyone is ready."
         : `Waiting for ${room.hostName || "the host"} to start the game.`,
@@ -770,7 +997,8 @@ function deriveRoundSnapshot(room) {
 
   if (room.status === "finished") {
     return {
-      timerLabel: "Match finished",
+      timerCount: null,
+      timerContext: "Match finished",
       statusText: buildFinishedMessage(room),
       zoomScale: 1,
       overlayText: "",
@@ -782,7 +1010,8 @@ function deriveRoundSnapshot(room) {
 
   if (!round) {
     return {
-      timerLabel: "Waiting for round...",
+      timerCount: null,
+      timerContext: "Waiting...",
       statusText: "The match is getting the next round ready.",
       zoomScale: 1,
       overlayText: "Waiting for round...",
@@ -796,14 +1025,11 @@ function deriveRoundSnapshot(room) {
 
   if (Number.isFinite(resolvedAt)) {
     const remaining = Math.max(0, resolvedAt + (round.intermissionMs || 0) - now);
+    const isFinished = room.status === "finished";
 
     return {
-      timerLabel:
-        room.status === "finished"
-          ? "Match finished"
-          : remaining > 0
-            ? `Next round in ${Math.ceil(remaining / 1000)}s`
-            : "Loading next round...",
+      timerCount: !isFinished && remaining > 0 ? Math.ceil(remaining / 1000) : null,
+      timerContext: isFinished ? "Match finished" : remaining > 0 ? "Next round in" : "Loading...",
       statusText: buildResolvedRoundMessage(room),
       zoomScale: 1,
       overlayText: "",
@@ -812,14 +1038,16 @@ function deriveRoundSnapshot(room) {
   }
 
   if (Number.isFinite(startedAt) && now < startedAt) {
+    const secsUntilStart = Math.ceil((startedAt - now) / 1000);
     return {
-      timerLabel: `Round starts in ${Math.ceil((startedAt - now) / 1000)}s`,
+      timerCount: secsUntilStart,
+      timerContext: "Get ready",
       statusText:
         room.playerCount > 2
           ? "Everyone is locked in. Get ready."
           : "Both players are locked in. Get ready.",
       zoomScale: round.zoomLevels?.[0] || round.zoomScale || 1,
-      overlayText: `Starting in ${Math.ceil((startedAt - now) / 1000)}s`,
+      overlayText: `Starting in ${secsUntilStart}s`,
       canGuess: false,
     };
   }
@@ -827,19 +1055,26 @@ function deriveRoundSnapshot(room) {
   const zoomLevels = Array.isArray(round.zoomLevels) && round.zoomLevels.length
     ? round.zoomLevels
     : [round.zoomScale || 1];
-  const stepMs = Number(round.zoomStepMs || 30000);
-  const roundDurationMs = Number(round.roundDurationMs || stepMs * zoomLevels.length);
+  const stepDurations = Array.isArray(round.zoomStepDurationsMs) && round.zoomStepDurationsMs.length === zoomLevels.length
+    ? round.zoomStepDurationsMs
+    : zoomLevels.map(() => Number(round.zoomStepMs || 30000));
+  const roundDurationMs = Number(round.roundDurationMs || stepDurations.reduce((s, d) => s + d, 0));
   const elapsed = Number.isFinite(startedAt) ? Math.max(0, now - startedAt) : 0;
-  const zoomIndex = Math.min(Math.floor(elapsed / stepMs), zoomLevels.length - 1);
-  const nextZoomInMs =
-    zoomIndex < zoomLevels.length - 1 ? Math.max(0, stepMs - (elapsed % stepMs)) : 0;
+
+  // Variable-duration zoom step calculation
+  let zoomIndex = zoomLevels.length - 1;
+  let cumulative = 0;
+  for (let i = 0; i < stepDurations.length; i++) {
+    cumulative += stepDurations[i];
+    if (elapsed < cumulative) { zoomIndex = i; break; }
+  }
+  const nextStepAt = stepDurations.slice(0, zoomIndex + 1).reduce((s, d) => s + d, 0);
+  const nextZoomInMs = zoomIndex < zoomLevels.length - 1 ? Math.max(0, nextStepAt - elapsed) : 0;
   const endsInMs = Math.max(0, roundDurationMs - elapsed);
 
   return {
-    timerLabel:
-      nextZoomInMs > 0
-        ? `Next zoom in ${Math.ceil(nextZoomInMs / 1000)}s`
-        : `Round ends in ${Math.ceil(endsInMs / 1000)}s`,
+    timerCount: nextZoomInMs > 0 ? Math.ceil(nextZoomInMs / 1000) : Math.ceil(endsInMs / 1000),
+    timerContext: nextZoomInMs > 0 ? "Next zoom in" : "Round ends in",
     statusText: "First correct guess wins the round.",
     zoomScale: zoomLevels[zoomIndex],
     overlayText: "",
@@ -857,8 +1092,11 @@ function updateImageStage(round, zoomScale, overlayText) {
 
   if (state.currentImageUrl !== round.imageUrl) {
     state.currentImageUrl = round.imageUrl;
-    showImageLoading("Loading round...");
     gameImage.src = round.imageUrl;
+    // Only show loading overlay if image isn't cached/loaded already
+    if (!gameImage.complete || !gameImage.naturalWidth) {
+      hideImageLoading();
+    }
   }
 
   gameImage.style.transformOrigin = `${round.focusX || 50}% ${round.focusY || 50}%`;
@@ -877,7 +1115,7 @@ function updateImageStage(round, zoomScale, overlayText) {
 function resetImageStage() {
   state.currentImageUrl = "";
   gameImage.removeAttribute("src");
-  showImageLoading("Waiting for round...");
+  hideImageLoading();
 }
 
 gameImage?.addEventListener("load", () => {
@@ -920,18 +1158,8 @@ function renderPublicWaitingRoom(room) {
   startRoomTicker();
 }
 
-function shouldHoldLiveReveal(room) {
-  const currentRound = room?.currentRound;
-
-  if (!currentRound?.imageUrl) {
-    return true;
-  }
-
-  return !(
-    state.currentImageUrl === currentRound.imageUrl &&
-    gameImage.complete &&
-    gameImage.naturalWidth > 0
-  );
+function shouldHoldLiveReveal(_room) {
+  return false;
 }
 
 function syncLiveScreen(room, snapshot = deriveRoundSnapshot(room)) {
@@ -950,7 +1178,7 @@ function syncLiveScreen(room, snapshot = deriveRoundSnapshot(room)) {
   if (shouldHold) {
     updateQueueCopy(
       "Loading first image...",
-      snapshot?.timerLabel ? `${snapshot.timerLabel}. Getting the round ready.` : "Getting the round ready.",
+      snapshot?.timerContext ? `${snapshot.timerContext}. Getting the round ready.` : "Getting the round ready.",
     );
   }
 }
@@ -1027,8 +1255,9 @@ function stopQueueTitleAnimation() {
 
 function updateGuessFormAvailability(snapshot = deriveRoundSnapshot(state.latestPayload?.room || {})) {
   const canGuess = Boolean(snapshot?.canGuess && state.latestPayload?.status === "live");
-  guessInput.disabled = !canGuess;
+  guessInput.disabled = false;
   guessButton.disabled = !canGuess;
+  guessInput.dataset.canGuess = canGuess ? "true" : "false";
 
   if (!canGuess) {
     clearInlineSuggestion();
@@ -1060,19 +1289,28 @@ function renderRoundHistory(rounds) {
   }
 }
 
+const BOT_CHAT_DELAY_MS = 3500;
+
 function renderGuessHistory(container, guesses, emptyText) {
   if (!container) {
     return;
   }
 
+  // Filter out bot chat messages that haven't "arrived" yet — creates a natural delay
+  const now = Date.now();
+  const visible = guesses.filter((entry) => {
+    if (!entry.isChat) return true;
+    return now - Date.parse(entry.at || "") >= BOT_CHAT_DELAY_MS;
+  });
+
   container.replaceChildren();
 
-  if (!guesses.length) {
+  if (!visible.length) {
     container.append(buildEmptyListItem(emptyText));
     return;
   }
 
-  for (const entry of guesses) {
+  for (const entry of visible) {
     const item = document.createElement("li");
     item.className = "play-online-chat-message";
     const displayGuess = censorProfanity(entry.guess, { maxLength: 80 });
@@ -1086,6 +1324,9 @@ function renderGuessHistory(container, guesses, emptyText) {
 
     if (entry.correct) {
       item.dataset.correct = "true";
+    }
+    if (entry.isChat) {
+      item.dataset.chat = "true";
     }
     if (entry.pending) {
       item.dataset.pending = "true";
@@ -1483,7 +1724,7 @@ function notifyServerAboutExit(session) {
 }
 
 function updateAutocomplete() {
-  if (guessInput.disabled) {
+  if (guessInput.dataset.canGuess !== "true") {
     clearInlineSuggestion();
     return;
   }

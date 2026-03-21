@@ -11,209 +11,475 @@
     <link rel="icon" href="/University_of_Waterloo_seal.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="/styles/global.css" />
     <link rel="stylesheet" href="/styles/landing.css" />
+    <link rel="stylesheet" href="/styles/play-online.css" />
   </head>
   <body class="landing-shell">
-    <header class="site-header site-header-end">
-      <nav class="header-actions" aria-label="Primary">
-        <a class="ghost-button" href="/upload/">Upload</a>
-      </nav>
-    </header>
+    <div id="landing-root">
+      <header class="site-header site-header-end">
+        <nav class="header-actions" aria-label="Primary">
+          <a class="ghost-button" href="/upload/">Upload</a>
+        </nav>
+      </header>
 
-    <main class="landing-main">
-      <div class="landing-startup-loading" id="landing-startup-loading" aria-live="polite">
-        <div class="landing-startup-loading-card">
-          <span class="landing-startup-spinner" aria-hidden="true"></span>
-          <p class="landing-startup-title">Loading UW Zoom...</p>
+      <main class="landing-main">
+        <div class="landing-startup-loading" id="landing-startup-loading" aria-live="polite">
+          <div class="landing-startup-loading-card">
+            <span class="landing-startup-spinner" aria-hidden="true"></span>
+            <p class="landing-startup-title">Loading UW Zoom...</p>
+          </div>
         </div>
-      </div>
-      <div class="landing-grid">
-        <aside class="landing-sidebar" aria-label="Home leaderboards">
-          <section
-            class="landing-leaderboard"
-            id="top-streaks-board"
-            aria-label="Top streaks"
-            data-state="loading"
-          >
-            <p class="landing-leaderboard-label">Top streaks</p>
-            <div class="landing-leaderboard-loading" aria-hidden="true">
-              <span class="landing-loading-row"></span>
-              <span class="landing-loading-row"></span>
-              <span class="landing-loading-row"></span>
-            </div>
-            <ol class="landing-leaderboard-list" id="landing-leaderboard-list" hidden></ol>
-            <p class="landing-leaderboard-empty" id="landing-leaderboard-empty" hidden>
-              Finish a run to fill this in.
-            </p>
-          </section>
-
-          <section
-            class="landing-leaderboard"
-            id="online-wins-board"
-            aria-label="Online wins"
-            data-state="loading"
-          >
-            <p class="landing-leaderboard-label">Online wins</p>
-            <div class="landing-leaderboard-loading" aria-hidden="true">
-              <span class="landing-loading-row"></span>
-              <span class="landing-loading-row"></span>
-              <span class="landing-loading-row"></span>
-            </div>
-            <ol class="landing-leaderboard-list" id="online-wins-list" hidden></ol>
-            <p class="landing-leaderboard-empty" id="online-wins-empty" hidden>
-              No online wins yet.
-            </p>
-          </section>
-        </aside>
-
-        <section class="hero-panel">
-          <h1 class="wordmark" aria-label="UW Zoom">
-            <span class="wordmark-accent">UW</span>
-            <span class="wordmark-fill">Zoom</span>
-          </h1>
-          <div class="landing-setup-card">
-            <label class="field-group landing-name-field" for="landing-player-name">
-              <input
-                class="text-input landing-name-input"
-                id="landing-player-name"
-                name="playerName"
-                type="text"
-                maxlength="32"
-                placeholder="Type your name"
-                autocomplete="nickname"
-              />
-            </label>
-
-            <div class="landing-avatar-stage">
-              <div class="landing-avatar-preview-shell">
-                <button
-                  class="landing-avatar-randomize"
-                  id="landing-avatar-randomize"
-                  type="button"
-                  aria-label="Randomize character"
-                  title="Randomize character"
-                >
-                  <img src="/assets/randomize.gif" alt="" />
-                </button>
-                <div class="landing-avatar-control-pair landing-avatar-control-pair-extra">
-                  <button
-                    class="landing-avatar-arrow landing-avatar-arrow-mini"
-                    type="button"
-                    data-avatar-control="extra"
-                    data-avatar-step="-1"
-                    aria-label="Previous accessory"
-                  >
-                    &#8249;
-                  </button>
-                  <button
-                    class="landing-avatar-arrow landing-avatar-arrow-mini"
-                    type="button"
-                    data-avatar-control="extra"
-                    data-avatar-step="1"
-                    aria-label="Next accessory"
-                  >
-                    &#8250;
-                  </button>
-                </div>
-                <div class="landing-avatar-control-pair landing-avatar-control-pair-eyes">
-                  <button
-                    class="landing-avatar-arrow landing-avatar-arrow-mini"
-                    type="button"
-                    data-avatar-control="eyes"
-                    data-avatar-step="-1"
-                    aria-label="Previous eyes"
-                  >
-                    &#8249;
-                  </button>
-                  <button
-                    class="landing-avatar-arrow landing-avatar-arrow-mini"
-                    type="button"
-                    data-avatar-control="eyes"
-                    data-avatar-step="1"
-                    aria-label="Next eyes"
-                  >
-                    &#8250;
-                  </button>
-                </div>
-                <div class="landing-avatar-control-pair landing-avatar-control-pair-mouth">
-                  <button
-                    class="landing-avatar-arrow landing-avatar-arrow-mini"
-                    type="button"
-                    data-avatar-control="mouth"
-                    data-avatar-step="-1"
-                    aria-label="Previous mouth"
-                  >
-                    &#8249;
-                  </button>
-                  <button
-                    class="landing-avatar-arrow landing-avatar-arrow-mini"
-                    type="button"
-                    data-avatar-control="mouth"
-                    data-avatar-step="1"
-                    aria-label="Next mouth"
-                  >
-                    &#8250;
-                  </button>
-                </div>
-                <div class="landing-avatar-control-pair landing-avatar-control-pair-body">
-                  <button
-                    class="landing-avatar-arrow"
-                    type="button"
-                    data-avatar-control="body"
-                    data-avatar-step="-1"
-                    aria-label="Previous body"
-                  >
-                    &#8249;
-                  </button>
-                  <button
-                    class="landing-avatar-arrow"
-                    type="button"
-                    data-avatar-control="body"
-                    data-avatar-step="1"
-                    aria-label="Next body"
-                  >
-                    &#8250;
-                  </button>
-                </div>
-                <canvas
-                  class="landing-avatar-preview"
-                  id="landing-avatar-preview"
-                  width="224"
-                  height="224"
-                  aria-label="Selected avatar preview"
-                ></canvas>
+        <div class="landing-grid">
+          <aside class="landing-sidebar" aria-label="Home leaderboards">
+            <section
+              class="landing-leaderboard"
+              id="online-wins-board"
+              aria-label="Online wins"
+              data-state="loading"
+            >
+              <p class="landing-leaderboard-label">Online wins</p>
+              <div class="landing-leaderboard-loading" aria-hidden="true">
+                <span class="landing-loading-row"></span>
+                <span class="landing-loading-row"></span>
+                <span class="landing-loading-row"></span>
               </div>
-            </div>
+              <ol class="landing-leaderboard-list" id="online-wins-list" hidden></ol>
+              <p class="landing-leaderboard-empty" id="online-wins-empty" hidden>
+                No online wins yet.
+              </p>
+            </section>
+          </aside>
 
-            <div class="hero-actions">
-              <a class="button button-primary" id="play-online-link" href="/play-online/">
-                Play!
-              </a>
-              <a
-                class="button button-secondary hero-private-room-button"
-                id="create-private-room-link"
-                href="/play-online/"
-              >
-                Create Private Room
-              </a>
+          <section class="hero-panel">
+            <h1 class="wordmark" aria-label="UW Zoom">
+              <span class="wordmark-accent">UW</span>
+              <span class="wordmark-fill">Zoom</span>
+            </h1>
+            <div class="landing-setup-card">
+              <label class="field-group landing-name-field" for="landing-player-name">
+                <input
+                  class="text-input landing-name-input"
+                  id="landing-player-name"
+                  name="playerName"
+                  type="text"
+                  maxlength="32"
+                  placeholder="Type your name"
+                  autocomplete="nickname"
+                />
+              </label>
+
+              <div class="landing-avatar-stage">
+                <div class="landing-avatar-preview-shell">
+                  <button
+                    class="landing-avatar-randomize"
+                    id="landing-avatar-randomize"
+                    type="button"
+                    aria-label="Randomize character"
+                    title="Randomize character"
+                  >
+                    <img src="/assets/randomize.gif" alt="" />
+                  </button>
+                  <div class="landing-avatar-control-pair landing-avatar-control-pair-extra">
+                    <button
+                      class="landing-avatar-arrow landing-avatar-arrow-mini"
+                      type="button"
+                      data-avatar-control="extra"
+                      data-avatar-step="-1"
+                      aria-label="Previous accessory"
+                    >
+                      &#8249;
+                    </button>
+                    <button
+                      class="landing-avatar-arrow landing-avatar-arrow-mini"
+                      type="button"
+                      data-avatar-control="extra"
+                      data-avatar-step="1"
+                      aria-label="Next accessory"
+                    >
+                      &#8250;
+                    </button>
+                  </div>
+                  <div class="landing-avatar-control-pair landing-avatar-control-pair-eyes">
+                    <button
+                      class="landing-avatar-arrow landing-avatar-arrow-mini"
+                      type="button"
+                      data-avatar-control="eyes"
+                      data-avatar-step="-1"
+                      aria-label="Previous eyes"
+                    >
+                      &#8249;
+                    </button>
+                    <button
+                      class="landing-avatar-arrow landing-avatar-arrow-mini"
+                      type="button"
+                      data-avatar-control="eyes"
+                      data-avatar-step="1"
+                      aria-label="Next eyes"
+                    >
+                      &#8250;
+                    </button>
+                  </div>
+                  <div class="landing-avatar-control-pair landing-avatar-control-pair-mouth">
+                    <button
+                      class="landing-avatar-arrow landing-avatar-arrow-mini"
+                      type="button"
+                      data-avatar-control="mouth"
+                      data-avatar-step="-1"
+                      aria-label="Previous mouth"
+                    >
+                      &#8249;
+                    </button>
+                    <button
+                      class="landing-avatar-arrow landing-avatar-arrow-mini"
+                      type="button"
+                      data-avatar-control="mouth"
+                      data-avatar-step="1"
+                      aria-label="Next mouth"
+                    >
+                      &#8250;
+                    </button>
+                  </div>
+                  <div class="landing-avatar-control-pair landing-avatar-control-pair-body">
+                    <button
+                      class="landing-avatar-arrow"
+                      type="button"
+                      data-avatar-control="body"
+                      data-avatar-step="-1"
+                      aria-label="Previous body"
+                    >
+                      &#8249;
+                    </button>
+                    <button
+                      class="landing-avatar-arrow"
+                      type="button"
+                      data-avatar-control="body"
+                      data-avatar-step="1"
+                      aria-label="Next body"
+                    >
+                      &#8250;
+                    </button>
+                  </div>
+                  <canvas
+                    class="landing-avatar-preview"
+                    id="landing-avatar-preview"
+                    width="224"
+                    height="224"
+                    aria-label="Selected avatar preview"
+                  ></canvas>
+                </div>
+              </div>
+
+              <div class="hero-actions">
+                <a class="button button-primary" id="play-online-link" href="/play-online/">
+                  Play!
+                </a>
+                <a
+                  class="button button-secondary hero-private-room-button"
+                  id="create-private-room-link"
+                  href="/play-online/"
+                >
+                  Create Private Room
+                </a>
+              </div>
+              <p class="hero-copy">
+                <a
+                  class="hero-note-link"
+                  href="https://github.com/PetarIsakovic/uw-zoom"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Star this GitHub project
+                </a>
+                before I have to keep the site alive with couch-cushion quarters.
+              </p>
             </div>
-            <p class="hero-copy">
-              <a
-                class="hero-note-link"
-                href="https://github.com/PetarIsakovic/uw-zoom"
-                target="_blank"
-                rel="noreferrer"
-              >
-                Star this GitHub project
-              </a>
-              before I have to keep the site alive with couch-cushion quarters.
+          </section>
+        </div>
+      </main>
+
+      <footer class="site-footer">
+      </footer>
+    </div>
+
+    <div id="play-online-root" hidden>
+      <header class="site-header">
+        <a class="brand brand-small" href="/">UW Zoom</a>
+        <nav class="header-actions" aria-label="Primary">
+          <a class="ghost-button" href="/">Home</a>
+        </nav>
+      </header>
+
+      <main class="play-online-layout">
+        <section class="panel play-online-panel">
+          <div class="play-online-hero" id="online-hero">
+            <div>
+              <p class="eyebrow">Online Duel</p>
+              <h1 class="panel-title">Same image. Same timer. First correct guess wins.</h1>
+            </div>
+            <p class="panel-copy play-online-copy">
+              Both players get the exact same image at the exact same time. The zoom
+              steps out every 30 seconds for both players together.
             </p>
           </div>
-        </section>
-      </div>
-    </main>
 
-    <footer class="site-footer">
-    </footer>
+          <section class="play-online-join" id="online-join">
+            <form class="play-online-entry-form" id="online-entry-form" autocomplete="off">
+              <label class="field-group play-online-name-field" for="online-player-name">
+                <span class="field-label">Name</span>
+                <input
+                  class="text-input"
+                  id="online-player-name"
+                  name="playerName"
+                  type="text"
+                  maxlength="32"
+                  placeholder="Type your name"
+                  autocomplete="nickname"
+                  required
+                />
+              </label>
+              <div class="play-online-entry-actions">
+                <button class="button button-primary" id="join-match-button" type="submit">
+                  Find Match
+                </button>
+                <button
+                  class="button button-secondary play-online-create-button"
+                  id="create-private-room-button"
+                  type="button"
+                >
+                  Create Private Room
+                </button>
+                <button class="button button-secondary" id="leave-match-button" type="button" hidden>
+                  Leave Queue
+                </button>
+              </div>
+            </form>
+            <p class="status-message play-online-status" id="online-status" data-tone="default">
+              Queue into a public room. It starts 10 seconds after player two arrives.
+            </p>
+          </section>
+
+          <section class="play-online-lobby" id="online-lobby" hidden>
+            <div class="play-online-lobby-header">
+              <div class="play-online-lobby-copy">
+                <p class="eyebrow">Private Room</p>
+                <h2 class="play-online-lobby-title" id="online-room-title">Private Room</h2>
+                <p class="play-online-lobby-subtitle" id="online-room-copy">
+                  Share the room link below. Only people with that link can join.
+                </p>
+              </div>
+              <button
+                class="button button-secondary play-online-start-button"
+                id="start-room-button"
+                type="button"
+                hidden
+              >
+                Start Game
+              </button>
+            </div>
+
+            <div class="play-online-room-link-row" id="online-room-link-row">
+              <input
+                class="text-input play-online-room-link"
+                id="online-room-link"
+                type="text"
+                readonly
+                value=""
+              />
+              <button class="button button-secondary" id="copy-room-link-button" type="button">
+                Copy Link
+              </button>
+            </div>
+
+            <section class="play-online-feed-card">
+              <h2>Players</h2>
+              <ul class="play-online-room-roster" id="online-room-roster"></ul>
+            </section>
+          </section>
+
+          <section class="play-online-queue" id="online-queue" hidden>
+            <div class="landing-startup-loading-card">
+              <span class="landing-startup-spinner" aria-hidden="true"></span>
+              <p class="landing-startup-title">Finding a match...</p>
+            </div>
+            <div class="play-online-queue-copy">
+              <h2 id="online-queue-title">Loading...</h2>
+              <p id="online-queue-copy">Getting things ready.</p>
+            </div>
+            <section class="play-online-queue-players" id="online-queue-players" hidden>
+              <p class="play-online-queue-players-label">Players in this room</p>
+              <ul class="play-online-queue-players-list" id="online-queue-players-list"></ul>
+            </section>
+            <section class="play-online-rules" aria-label="How the game works">
+              <div class="play-online-rules-copy">
+                <p class="eyebrow">How It Works</p>
+                <h3 class="play-online-rules-title">Everybody gets the same image at the same time.</h3>
+                <p class="play-online-rules-text">
+                  It starts very zoomed in. Every 30 seconds it zooms out a little more for the
+                  whole room. First correct guess wins the round.
+                </p>
+              </div>
+              <div class="play-online-rules-demo" aria-hidden="true">
+                <div class="play-online-rules-demo-stage">
+                  <div class="play-online-rules-demo-image"></div>
+                </div>
+                <div class="play-online-rules-demo-steps">
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                </div>
+              </div>
+              <div class="play-online-rules-strip" aria-hidden="true">
+                <article class="play-online-rule-slide">
+                  <p class="play-online-rule-slide-label">First Round</p>
+                  <div class="play-online-rule-image play-online-rule-image-1"></div>
+                  <p class="play-online-rule-caption">Tiny clue only</p>
+                </article>
+                <article class="play-online-rule-slide">
+                  <p class="play-online-rule-slide-label">Second Round</p>
+                  <div class="play-online-rule-image play-online-rule-image-2"></div>
+                  <p class="play-online-rule-caption">A little more context</p>
+                </article>
+                <article class="play-online-rule-slide">
+                  <p class="play-online-rule-slide-label">Third Round</p>
+                  <div class="play-online-rule-image play-online-rule-image-3"></div>
+                  <p class="play-online-rule-caption">You can start narrowing it down</p>
+                </article>
+                <article class="play-online-rule-slide">
+                  <p class="play-online-rule-slide-label">Fourth Round</p>
+                  <div class="play-online-rule-image play-online-rule-image-4"></div>
+                  <p class="play-online-rule-caption">Enough for a strong guess</p>
+                </article>
+                <article class="play-online-rule-slide">
+                  <p class="play-online-rule-slide-label">Final Round</p>
+                  <div class="play-online-rule-image play-online-rule-image-5"></div>
+                  <p class="play-online-rule-caption">If nobody got it yet, it fully reveals</p>
+                </article>
+              </div>
+            </section>
+          </section>
+
+          <section class="play-online-match" id="online-match" hidden>
+            <div class="play-online-round-bar">
+                  <div class="play-online-clock-timer">
+                    <img class="play-online-clock-gif" src="/assets/clock.gif" alt="" aria-hidden="true" />
+                    <span class="play-online-timer-label" id="online-timer-label"></span>
+                  </div>
+                  <span class="play-online-letter-hint" id="online-letter-hint" aria-live="polite"></span>
+                  <span class="play-online-timer-context" id="online-timer-context">Waiting to start</span>
+                  <button
+                    class="play-online-settings-button"
+                    id="online-settings-button"
+                    type="button"
+                    aria-label="Settings"
+                    aria-expanded="false"
+                    aria-controls="online-settings-popup"
+                  >
+                    <img src="/assets/settings.gif" alt="" aria-hidden="true" />
+                  </button>
+                  <div class="play-online-settings-popup" id="online-settings-popup" hidden>
+                    <div class="play-online-settings-header">
+                      <p class="play-online-settings-title">Settings</p>
+                      <button class="play-online-settings-close" id="online-settings-close" type="button" aria-label="Close settings">✕</button>
+                    </div>
+                    <div class="play-online-settings-body">
+                      <div class="play-online-settings-row">
+                        <label class="play-online-settings-label" for="online-sound-toggle">Sound</label>
+                        <input class="play-online-settings-toggle" type="checkbox" id="online-sound-toggle" checked />
+                      </div>
+                      <div class="play-online-settings-row play-online-settings-row-volume">
+                        <label class="play-online-settings-label" for="online-volume-slider">Volume</label>
+                        <input class="play-online-settings-slider" type="range" id="online-volume-slider" min="0" max="100" value="80" />
+                      </div>
+                      <div class="play-online-settings-divider"></div>
+                      <button class="button button-secondary play-online-settings-leave" id="online-settings-leave" type="button">Leave Game</button>
+                    </div>
+                  </div>
+            </div>
+
+            <div class="play-online-arena">
+              <aside class="play-online-side-column play-online-players-column">
+                <section class="play-online-side-card">
+                  <h2>Players</h2>
+                  <div class="play-online-scoreboard" id="online-scoreboard"></div>
+                </section>
+
+                <ul class="play-online-round-history" id="online-round-history" hidden></ul>
+              </aside>
+
+              <div class="play-online-center-column">
+                <div class="play-online-stage">
+                  <div class="play-online-image-frame">
+                    <div class="play-online-image-loading" id="online-image-loading">
+                      <div class="play-online-image-loading-card">
+                        <span class="landing-startup-spinner" aria-hidden="true"></span>
+                        <p class="play-online-image-loading-copy" id="online-image-loading-copy">
+                          Waiting for round...
+                        </p>
+                      </div>
+                    </div>
+                    <img id="online-game-image" alt="Current online duel round" />
+                  </div>
+                </div>
+              </div>
+
+              <aside class="play-online-side-column play-online-chat-column">
+                <section class="play-online-side-card play-online-chat-card">
+                  <h2>Chat</h2>
+                  <p class="play-online-feed-copy" id="online-round-status">
+                    Match updates will appear here.
+                  </p>
+
+                  <div class="play-online-chat-log">
+                    <ul class="play-online-guess-list" id="online-room-guess-list"></ul>
+                  </div>
+
+                  <form class="play-online-guess-form" id="online-guess-form" autocomplete="off">
+                    <label class="field-group play-online-guess-field" for="online-guess-input">
+                      <span class="field-label">Your guess</span>
+                      <div class="autocomplete-shell play-online-autocomplete-shell">
+                        <div class="autocomplete-ghost" aria-hidden="true">
+                          <span class="autocomplete-typed" id="online-ghost-typed"></span><span
+                            class="autocomplete-suffix"
+                            id="online-ghost-suffix"
+                          ></span>
+                        </div>
+                        <input
+                          class="text-input autocomplete-input"
+                          id="online-guess-input"
+                          name="guess"
+                          type="text"
+                          maxlength="80"
+                          placeholder="WatCard, Dana Porter, goose..."
+                          required
+                        />
+                      </div>
+                    </label>
+                    <button class="button button-primary" id="online-guess-button" type="submit" aria-hidden="true"></button>
+                  </form>
+                </section>
+              </aside>
+            </div>
+          </section>
+
+          <section class="play-online-summary" id="online-summary" hidden>
+            <div class="play-online-badge">Match over</div>
+            <h2 class="play-online-summary-title" id="online-summary-title">Match finished</h2>
+            <p class="play-online-summary-copy" id="online-summary-copy">
+              You can queue again whenever you want.
+            </p>
+            <div class="play-online-actions">
+              <button class="button button-primary" id="find-another-match-button" type="button">
+                Find Another Match
+              </button>
+              <a class="button button-secondary" href="/">Back Home</a>
+            </div>
+          </section>
+        </section>
+      </main>
+    </div>
+
     <script type="module" src="/scripts/landing.js"></script>
+    <script type="module" src="/scripts/play-online.js"></script>
   </body>
 </html>

@@ -152,10 +152,25 @@ function setupLandingSetup() {
     const urlPlayerName = normalizePlayerName(params.get("name") || "");
     landingPlayerNameInput.value = urlPlayerName || savedPlayerName;
     landingPlayerNameInput.addEventListener("input", syncPlayLinks);
+    landingPlayerNameInput.addEventListener("input", () => {
+      landingPlayerNameInput.classList.toggle("has-value", landingPlayerNameInput.value.length > 0);
+    });
+    landingPlayerNameInput.classList.toggle("has-value", landingPlayerNameInput.value.length > 0);
   }
 
-  playOnlineLink?.addEventListener("click", ensurePlayableName);
-  createPrivateRoomLink?.addEventListener("click", ensurePlayableName);
+  playOnlineLink?.addEventListener("click", (e) => {
+    e.preventDefault();
+    ensurePlayableName();
+    savePlayHandoff({ createPrivateRoom: false });
+    playStartSound();
+    document.dispatchEvent(new CustomEvent("uwzoom:start-play-online"));
+  });
+  createPrivateRoomLink?.addEventListener("click", (e) => {
+    e.preventDefault();
+    ensurePlayableName();
+    savePlayHandoff({ createPrivateRoom: true });
+    document.dispatchEvent(new CustomEvent("uwzoom:start-play-online"));
+  });
 
   if (!landingAvatarPreview || !landingAvatarControlButtons.length) {
     syncPlayLinks();
@@ -591,21 +606,43 @@ function ensurePlayableName() {
   return guestName;
 }
 
-function buildDestinationHref(pathname, options = {}) {
+function playStartSound() {
+  const audio = new Audio("/assets/sound-effects/roundEndSuccess.ogg");
+  audio.volume = 0.8;
+  audio.play().catch(() => {});
+}
+
+function savePlayHandoff(options = {}) {
   const { createPrivateRoom = false } = options;
+  const name = normalizePlayerName(landingPlayerNameInput?.value || "");
+  try {
+    sessionStorage.setItem(
+      "uwzoom-play-handoff",
+      JSON.stringify({
+        name: name || undefined,
+        avatar: {
+          body: avatarState.bodyIndex,
+          eyes: avatarState.eyesIndex,
+          mouth: avatarState.mouthIndex,
+          extra: avatarState.extraIndex,
+        },
+        autoplay: true,
+        createPrivateRoom: createPrivateRoom || undefined,
+      }),
+    );
+  } catch {}
+}
+
+function buildDestinationHref(pathname, options = {}) {
+  if (pathname === "/play-online/") {
+    return pathname;
+  }
+
   const params = new URLSearchParams();
   const name = normalizePlayerName(landingPlayerNameInput?.value || "");
 
   if (name) {
     params.set("name", name);
-  }
-
-  if (pathname === "/play-online/") {
-    params.set("autoplay", "1");
-
-    if (createPrivateRoom) {
-      params.set("createPrivateRoom", "1");
-    }
   }
 
   writeAvatarSelectionToSearchParams(params, {

@@ -3,10 +3,6 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background:
-    linear-gradient(180deg, rgba(251, 247, 239, 0.66), rgba(248, 243, 235, 0.72)),
-    url("/assets/backgrounds/landing-collage.webp") center center / cover no-repeat,
-    linear-gradient(180deg, #fbf7ef 0%, #f8f3eb 100%);
 }
 
 .landing-shell--transitioning {
@@ -169,7 +165,8 @@
 
 .landing-sidebar {
   position: absolute;
-  left: max(1rem, calc(50% - 44rem));
+  /* right edge is flush with the hero panel's left edge */
+  right: calc(50% + 21.875rem);
   top: calc(50% + 1.1rem);
   width: min(19.5rem, calc(100vw - 2rem));
   display: grid;
@@ -179,7 +176,7 @@
 
 .landing-leaderboard {
   min-height: 11.6rem;
-  padding: 1.05rem 1.12rem 1.12rem;
+  padding: 1.1rem 1.1rem 1.1rem;
   border: 4px solid #111111;
   border-radius: 0;
   background: rgba(255, 252, 246, 0.82);
@@ -188,7 +185,7 @@
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   align-content: stretch;
-  gap: 0.78rem;
+  gap: 0.9rem;
 }
 
 .landing-leaderboard-label,
@@ -197,12 +194,12 @@
 }
 
 .landing-leaderboard-label {
-  color: var(--muted);
+  color: var(--ink);
   font-size: 0.72rem;
   font-weight: 700;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  padding-left: 0.12rem;
+  padding-left: 0;
 }
 
 .landing-leaderboard-empty {
@@ -220,13 +217,13 @@
   padding: 0;
   display: grid;
   align-content: start;
-  gap: 0.58rem;
+  gap: 0.4rem;
 }
 
 .landing-leaderboard-loading {
   display: grid;
   align-content: start;
-  gap: 0.58rem;
+  gap: 0.4rem;
 }
 
 .landing-loading-row {
@@ -252,96 +249,100 @@
 
 .landing-leaderboard-entry {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(5.5rem, auto);
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 0.82rem;
+  gap: 1.25rem;
   border-radius: 0;
-  background: rgba(255, 255, 255, 0.74);
-  padding: 0.74rem 0.82rem;
+  background: rgba(255, 255, 255, 0.6);
+  padding: 0.62rem 0.75rem;
   cursor: pointer;
   transition:
-    transform 120ms ease,
     box-shadow 120ms ease,
     background-color 120ms ease;
 }
 
 .landing-leaderboard-entry:hover,
 .landing-leaderboard-entry:focus-visible {
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow:
-    0 10px 20px rgba(17, 17, 17, 0.08),
-    inset 0 0 0 2px rgba(17, 17, 17, 0.12);
-  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: inset 0 0 0 2px rgba(17, 17, 17, 0.14);
   outline: none;
 }
 
 .landing-leaderboard-player {
   display: grid;
-  gap: 0.14rem;
   min-width: 0;
 }
 
 .landing-leaderboard-identity {
   display: flex;
   align-items: center;
-  gap: 0.55rem;
+  gap: 0.6rem;
   min-width: 0;
 }
 
 .landing-leaderboard-avatar {
-  width: 2.125rem;
-  height: 2.125rem;
+  width: 2rem;
+  height: 2rem;
   flex: 0 0 auto;
-  border-radius: 12px;
+  border-radius: 10px;
   background: rgba(255, 255, 255, 0.84);
-  box-shadow:
-    0 4px 10px rgba(17, 17, 17, 0.05),
-    inset 0 0 0 1px rgba(17, 17, 17, 0.06);
+  box-shadow: inset 0 0 0 1px rgba(17, 17, 17, 0.08);
   image-rendering: pixelated;
 }
 
 .landing-leaderboard-copy {
-  display: grid;
-  gap: 0.1rem;
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
   min-width: 0;
+  overflow: hidden;
 }
 
 .landing-leaderboard-name,
-.landing-leaderboard-rank {
-  font-weight: 700;
+.landing-leaderboard-rank,
+.landing-leaderboard-score,
+.landing-leaderboard-time {
+  font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
 }
 
 .landing-leaderboard-name {
-  font-size: 0.95rem;
-  letter-spacing: -0.03em;
+  font-size: 0.84rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 
 .landing-leaderboard-rank {
   color: var(--muted);
-  font-size: 0.76rem;
-  letter-spacing: 0.08em;
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  flex-shrink: 0;
 }
 
 .landing-leaderboard-metrics {
-  display: grid;
-  justify-items: end;
-  gap: 0.14rem;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
   text-align: right;
-  align-self: center;
+  white-space: nowrap;
 }
 
 .landing-leaderboard-score {
-  font-size: 0.93rem;
-  letter-spacing: -0.03em;
-  white-space: nowrap;
-  line-height: 1.1;
+  font-size: 0.84rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1;
 }
 
 .landing-leaderboard-time {
   color: var(--muted);
-  font-size: 0.74rem;
-  font-weight: 500;
-  line-height: 1.1;
+  font-size: 0.84rem;
+  font-weight: 400;
+  line-height: 1;
 }
 
 .hero-panel {
@@ -378,6 +379,13 @@
   font-size: 1.04rem;
   background: rgba(255, 255, 255, 0.84);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+.landing-name-input.has-value {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  font-size: 0.95rem;
+  font-weight: 500;
+  letter-spacing: 0;
 }
 
 .landing-avatar-stage {
@@ -444,8 +452,8 @@
   background: rgba(255, 255, 255, 0.94);
   box-shadow:
     0 14px 22px rgba(17, 17, 17, 0.1),
-    inset 0 0 0 1px rgba(17, 17, 17, 0.1);
-  transform: translate(-50%, -1px);
+    inset 0 0 0 2px #111111;
+  transform: translateX(-50%);
   outline: none;
 }
 
@@ -1031,7 +1039,7 @@
   }
 }
 
-@media (max-width: 1180px) {
+@media (max-width: 1380px) {
   .landing-grid {
     grid-template-columns: 1fr;
     gap: 0.95rem;

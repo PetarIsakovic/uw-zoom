@@ -11,10 +11,15 @@
     <script>
       (() => {
         const params = new URLSearchParams(window.location.search);
-        const shouldAutoCreatePrivateRoom = params.get("createPrivateRoom") === "1";
+        let handoff = null;
+        try { handoff = JSON.parse(sessionStorage.getItem("uwzoom-play-handoff") || "null"); } catch {}
+        const shouldAutoCreatePrivateRoom =
+          Boolean(handoff?.createPrivateRoom) || params.get("createPrivateRoom") === "1";
         const shouldSkipIntro =
+          Boolean(handoff?.autoplay) ||
           params.get("autoplay") === "1" ||
           (params.get("playerId") && params.get("token")) ||
+          Boolean(sessionStorage.getItem("uwzoom-player-id")) ||
           Boolean(params.get("room"));
 
         if (shouldSkipIntro) {
@@ -194,16 +199,44 @@
                 <div class="play-online-scoreboard" id="online-scoreboard"></div>
               </section>
 
-              <section class="play-online-side-card">
-                <h2>Rounds</h2>
-                <ul class="play-online-round-history" id="online-round-history"></ul>
-              </section>
+              <ul class="play-online-round-history" id="online-round-history" hidden></ul>
             </aside>
 
             <div class="play-online-center-column">
               <div class="play-online-round-bar">
-                <span class="play-online-round-label" id="online-round-label">Round 1 of 3</span>
-                <span class="play-online-timer-label" id="online-timer-label">Waiting to start</span>
+                <div class="play-online-clock-timer">
+                  <img class="play-online-clock-gif" src="/assets/clock.gif" alt="" aria-hidden="true" />
+                  <span class="play-online-timer-label" id="online-timer-label"></span>
+                </div>
+                <span class="play-online-timer-context" id="online-timer-context">Waiting to start</span>
+                <button
+                  class="play-online-settings-button"
+                  id="online-settings-button"
+                  type="button"
+                  aria-label="Settings"
+                  aria-expanded="false"
+                  aria-controls="online-settings-popup"
+                >
+                  <img src="/assets/settings.gif" alt="" aria-hidden="true" />
+                </button>
+                <div class="play-online-settings-popup" id="online-settings-popup" hidden>
+                  <div class="play-online-settings-header">
+                    <p class="play-online-settings-title">Settings</p>
+                    <button class="play-online-settings-close" id="online-settings-close" type="button" aria-label="Close settings">✕</button>
+                  </div>
+                  <div class="play-online-settings-body">
+                    <div class="play-online-settings-row">
+                      <label class="play-online-settings-label" for="online-sound-toggle">Sound</label>
+                      <input class="play-online-settings-toggle" type="checkbox" id="online-sound-toggle" checked />
+                    </div>
+                    <div class="play-online-settings-row play-online-settings-row-volume">
+                      <label class="play-online-settings-label" for="online-volume-slider">Volume</label>
+                      <input class="play-online-settings-slider" type="range" id="online-volume-slider" min="0" max="100" value="80" />
+                    </div>
+                    <div class="play-online-settings-divider"></div>
+                    <button class="button button-secondary play-online-settings-leave" id="online-settings-leave" type="button">Leave Game</button>
+                  </div>
+                </div>
               </div>
 
               <div class="play-online-stage">
@@ -251,9 +284,7 @@
                       />
                     </div>
                   </label>
-                  <button class="button button-primary" id="online-guess-button" type="submit">
-                    Guess
-                  </button>
+                  <button class="button button-primary" id="online-guess-button" type="submit" aria-hidden="true"></button>
                 </form>
               </section>
             </aside>
