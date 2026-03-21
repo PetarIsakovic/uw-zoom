@@ -46,10 +46,6 @@ export const handler = withErrorHandling(async (event) => {
     throw new HttpError(400, "The answer is required.");
   }
 
-  if (!uploaderName) {
-    throw new HttpError(400, "The uploader name is required.");
-  }
-
   const metadata = await getObjectMetadata(imageKey);
 
   if (!metadata) {
@@ -97,8 +93,10 @@ export const handler = withErrorHandling(async (event) => {
 });
 
 function normalizeUploaderName(value) {
-  return String(value || "")
+  const normalized = String(value || "")
     .trim()
     .replace(/\s+/g, " ")
     .slice(0, 60);
+
+  return normalized || "Anonymous";
 }

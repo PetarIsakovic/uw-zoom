@@ -110,7 +110,7 @@ textarea {
 }
 
 .ghost-button {
-  border: 1px solid rgba(17, 17, 17, 0.12);
+  border: 2px solid #111111;
   padding: 0.8rem 1.05rem;
   background: rgba(255, 252, 246, 0.64);
   backdrop-filter: blur(8px);

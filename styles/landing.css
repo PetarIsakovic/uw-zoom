@@ -4,7 +4,8 @@
   flex-direction: column;
   overflow: hidden;
   background:
-    radial-gradient(circle at 50% 46%, rgba(255, 255, 255, 0.82), transparent 18rem),
+    linear-gradient(180deg, rgba(251, 247, 239, 0.66), rgba(248, 243, 235, 0.72)),
+    url("/assets/backgrounds/landing-collage.webp") center center / cover no-repeat,
     linear-gradient(180deg, #fbf7ef 0%, #f8f3eb 100%);
 }
 
@@ -17,14 +18,14 @@
   position: fixed;
   inset: -16vh -14vw;
   background:
-    radial-gradient(circle at 50% 46%, rgba(255, 255, 255, 0.48), transparent 14rem),
-    radial-gradient(circle at 50% 46%, rgba(242, 180, 0, 0.16), transparent 26rem),
-    url("/assets/contours.svg") center center / cover no-repeat;
-  opacity: 0;
+    linear-gradient(180deg, rgba(255, 251, 245, 0.4), rgba(255, 249, 240, 0.28)),
+    radial-gradient(circle at 50% 46%, rgba(255, 255, 255, 0.32), transparent 15rem),
+    radial-gradient(circle at 50% 46%, rgba(242, 180, 0, 0.09), transparent 27rem);
+  opacity: 0.68;
   transform-origin: center center;
-  will-change: transform;
+  will-change: auto;
   z-index: -3;
-  animation: landing-contour-zoom 18s linear infinite;
+  animation: none;
 }
 
 .landing-shell::after {
@@ -32,14 +33,14 @@
   position: fixed;
   inset: -16vh -14vw;
   background:
-    radial-gradient(circle at 50% 46%, rgba(255, 255, 255, 0.4), transparent 13rem),
-    radial-gradient(circle at 50% 46%, rgba(242, 180, 0, 0.12), transparent 24rem),
-    url("/assets/contours.svg") center center / cover no-repeat;
-  opacity: 0;
+    linear-gradient(180deg, rgba(255, 252, 246, 0.14), rgba(255, 252, 246, 0.08)),
+    radial-gradient(circle at 50% 46%, rgba(255, 255, 255, 0.2), transparent 14rem),
+    radial-gradient(circle at 50% 46%, rgba(242, 180, 0, 0.08), transparent 24rem);
+  opacity: 1;
   transform-origin: center center;
-  will-change: transform;
+  will-change: auto;
   z-index: -2;
-  animation: landing-contour-zoom 18s linear infinite 9s;
+  animation: none;
 }
 
 .landing-main {
@@ -49,6 +50,58 @@
   padding: 0.45rem 1rem 0.65rem;
   position: relative;
   isolation: isolate;
+}
+
+.landing-shell[data-ready="false"] .landing-grid {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.landing-shell[data-ready="true"] .landing-grid {
+  opacity: 1;
+  transition: opacity 180ms ease;
+}
+
+.landing-startup-loading {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+}
+
+.landing-shell[data-ready="true"] .landing-startup-loading {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 180ms ease;
+}
+
+.landing-startup-loading-card {
+  min-width: min(24rem, calc(100vw - 2rem));
+  padding: 1.5rem 1.75rem;
+  border: 4px solid #111111;
+  background: rgba(255, 252, 246, 0.92);
+  box-shadow: 0 18px 46px rgba(17, 17, 17, 0.08);
+  display: grid;
+  justify-items: center;
+  gap: 0.85rem;
+  text-align: center;
+}
+
+.landing-startup-spinner {
+  width: 2.7rem;
+  height: 2.7rem;
+  border-radius: 50%;
+  border: 4px solid rgba(17, 17, 17, 0.12);
+  border-top-color: var(--accent);
+  animation: landing-startup-spin 700ms linear infinite;
+}
+
+.landing-startup-title {
+  margin: 0;
+  font-size: 1.2rem;
+  letter-spacing: -0.03em;
 }
 
 .landing-shell--transitioning .site-header,
@@ -305,7 +358,7 @@
   width: min(35rem, 100%);
   padding: 1rem 1rem 1.05rem;
   border-radius: 34px;
-  border: 1px solid rgba(17, 17, 17, 0.08);
+  border: 4px solid #111111;
   background: rgba(255, 252, 246, 0.88);
   box-shadow:
     0 24px 65px rgba(17, 17, 17, 0.08),
@@ -936,6 +989,12 @@
   }
 }
 
+@keyframes landing-startup-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .landing-shell::before {
     inset: 0;
@@ -958,6 +1017,10 @@
   }
 
   .landing-loading-row {
+    animation: none;
+  }
+
+  .landing-startup-spinner {
     animation: none;
   }
 

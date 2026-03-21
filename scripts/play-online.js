@@ -74,6 +74,10 @@ const state = {
   exitCleanupSent: false,
   waitingForFirstImageReveal: false,
   hasRevealedLiveMatch: false,
+  queueTitleBase: "",
+  queueTitleAnimate: false,
+  queueTitleTick: 0,
+  queueTitleTimer: 0,
 };
 
 bootstrap();
@@ -175,9 +179,11 @@ async function bootstrap() {
   if (state.shouldAutoJoin) {
     state.shouldAutoJoin = false;
     if (state.shouldAutoCreatePrivateRoom) {
+      renderCreatingPrivateRoom();
       state.shouldAutoCreatePrivateRoom = false;
       await createPrivateRoom();
     } else {
+      renderQueued();
       await joinMatch();
     }
 
@@ -285,6 +291,7 @@ async function createPrivateRoom() {
   const playerName = ensurePlayerName();
 
   try {
+    renderCreatingPrivateRoom();
     setBusy(true);
     state.exitCleanupSent = false;
     clearPendingOnlineLeave();
@@ -489,6 +496,7 @@ function renderIdle(options = {}) {
   populateRoomLink("");
   roomRoster?.replaceChildren();
   scoreboard?.replaceChildren();
+  stopQueueTitleAnimation();
 
   if (!preserveStatus) {
     setStatus(
@@ -517,6 +525,30 @@ function renderQueued() {
   state.waitingForFirstImageReveal = false;
   state.hasRevealedLiveMatch = false;
   updateQueueCopy("Finding a match...", "Looking for another player right now.");
+}
+
+function renderCreatingPrivateRoom() {
+  clearRoomTicker();
+  heroSection.hidden = true;
+  joinSection.hidden = true;
+  lobbySection.hidden = false;
+  queueSection.hidden = true;
+  matchSection.hidden = true;
+  summarySection.hidden = true;
+  leaveMatchButton.hidden = true;
+  joinMatchButton.hidden = true;
+  createPrivateRoomButton.hidden = true;
+  startRoomButton.hidden = true;
+  playerNameInput.disabled = true;
+  roomLinkRow.hidden = false;
+  state.waitingForFirstImageReveal = false;
+  state.hasRevealedLiveMatch = false;
+  stopQueueTitleAnimation();
+  roomTitle.textContent = "Creating your private room";
+  roomCopy.textContent = "Generating the invite link. You will be able to share it in a moment.";
+  populateRoomLink("Generating invite link...");
+  roomRoster?.replaceChildren();
+  setStatus(onlineStatus, "Creating your private room...", "default");
 }
 
 function renderWaitingRoom(room) {
@@ -562,6 +594,7 @@ function renderWaitingRoom(room) {
 }
 
 function renderLive(room) {
+  stopQueueTitleAnimation();
   const showSingleLoadingScreen = !state.hasRevealedLiveMatch && shouldHoldLiveReveal(room);
 
   heroSection.hidden = true;
@@ -579,7 +612,9 @@ function renderLive(room) {
     onlineStatus,
     room?.type === "private"
       ? `Private room live with ${room?.playerCount || 0} players.`
-      : room.opponent?.name
+      : room?.playerCount > 2
+        ? `Live public room with ${room.playerCount} players.`
+        : room.opponent?.name
         ? `Live against ${room.opponent.name}.`
         : "Live match started.",
     "default",
@@ -593,6 +628,7 @@ function renderLive(room) {
 }
 
 function renderFinished(room) {
+  stopQueueTitleAnimation();
   heroSection.hidden = true;
   joinSection.hidden = true;
   lobbySection.hidden = true;
@@ -896,12 +932,55 @@ function maybeRevealLiveMatch() {
 }
 
 function updateQueueCopy(title, copy) {
-  if (queueTitle) {
-    queueTitle.textContent = title;
-  }
+  setQueueTitle(title);
 
   if (queueCopy) {
     queueCopy.textContent = copy;
+  }
+}
+
+function setQueueTitle(title) {
+  if (!queueTitle) {
+    return;
+  }
+
+  const normalizedTitle = String(title || "").trim();
+  const shouldAnimate = normalizedTitle.toLowerCase() === "finding a match...";
+
+  if (!shouldAnimate) {
+    stopQueueTitleAnimation();
+    queueTitle.textContent = normalizedTitle;
+    return;
+  }
+
+  state.queueTitleBase = normalizedTitle.replace(/\.+$/, "");
+  state.queueTitleAnimate = true;
+  state.queueTitleTick = 0;
+  queueTitle.textContent = state.queueTitleBase;
+
+  if (state.queueTitleTimer) {
+    return;
+  }
+
+  state.queueTitleTimer = window.setInterval(() => {
+    if (!state.queueTitleAnimate || !queueTitle) {
+      stopQueueTitleAnimation();
+      return;
+    }
+
+    state.queueTitleTick = (state.queueTitleTick + 1) % 4;
+    queueTitle.textContent = `${state.queueTitleBase}${".".repeat(state.queueTitleTick)}`;
+  }, 420);
+}
+
+function stopQueueTitleAnimation() {
+  state.queueTitleAnimate = false;
+  state.queueTitleBase = "";
+  state.queueTitleTick = 0;
+
+  if (state.queueTitleTimer) {
+    window.clearInterval(state.queueTitleTimer);
+    state.queueTitleTimer = 0;
   }
 }
 
@@ -919,6 +998,10 @@ function updateGuessFormAvailability(snapshot = deriveRoundSnapshot(state.latest
 }
 
 function renderRoundHistory(rounds) {
+  if (!roundHistory) {
+    return;
+  }
+
   roundHistory.replaceChildren();
 
   if (!rounds.length) {
@@ -937,6 +1020,10 @@ function renderRoundHistory(rounds) {
 }
 
 function renderGuessHistory(container, guesses, emptyText) {
+  if (!container) {
+    return;
+  }
+
   container.replaceChildren();
 
   if (!guesses.length) {

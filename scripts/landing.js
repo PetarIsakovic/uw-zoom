@@ -13,6 +13,8 @@ const onlineWinsList = document.querySelector("#online-wins-list");
 const onlineWinsEmpty = document.querySelector("#online-wins-empty");
 const topStreaksBoard = document.querySelector("#top-streaks-board");
 const onlineWinsBoard = document.querySelector("#online-wins-board");
+const landingShell = document.querySelector(".landing-shell");
+const landingStartupLoading = document.querySelector("#landing-startup-loading");
 const playOnlineLink = document.querySelector("#play-online-link");
 const createPrivateRoomLink = document.querySelector("#create-private-room-link");
 const startPlayingLink = document.querySelector("#start-playing-link");
@@ -102,11 +104,13 @@ const avatarScratchContext = avatarScratchCanvas.getContext("2d", { willReadFreq
 const GUEST_NAME_MIN = 100000;
 const GUEST_NAME_MAX = 999999;
 
-setupLandingSetup();
+landingShell?.setAttribute("data-ready", "false");
+const landingAvatarReadyPromise = setupLandingSetup();
 void flushPendingOnlineLeave();
-renderLandingLeaderboard();
-renderOnlineWins();
+const landingLeaderboardReadyPromise = renderLandingLeaderboard();
+const landingOnlineWinsReadyPromise = renderOnlineWins();
 setupPlayStartWarmup();
+void finishLandingStartup();
 
 function setupLandingSetup() {
   const params = new URLSearchParams(window.location.search);
@@ -136,7 +140,7 @@ function setupLandingSetup() {
 
   if (!landingAvatarPreview || !landingAvatarControlButtons.length) {
     syncPlayLinks();
-    return;
+    return Promise.resolve();
   }
 
   if (landingAvatarRandomizeButton) {
@@ -168,11 +172,27 @@ function setupLandingSetup() {
     });
   });
 
-  ensureAvatarAssets().catch((error) => {
+  return ensureAvatarAssets().catch((error) => {
     console.error("Failed to load avatar atlases.", error);
     drawAvatarFallback();
     syncPlayLinks();
   });
+}
+
+async function finishLandingStartup() {
+  await Promise.allSettled([
+    landingAvatarReadyPromise,
+    landingLeaderboardReadyPromise,
+    landingOnlineWinsReadyPromise,
+  ]);
+
+  landingShell?.setAttribute("data-ready", "true");
+
+  if (landingStartupLoading) {
+    window.setTimeout(() => {
+      landingStartupLoading.hidden = true;
+    }, 220);
+  }
 }
 
 async function renderLandingLeaderboard() {

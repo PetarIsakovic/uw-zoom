@@ -51,33 +51,21 @@
 
           <div class="answer-panel" id="answer-panel" hidden>
             <label class="field-group">
-              <span class="field-label">Your name</span>
-              <input
-                class="text-input"
-                id="uploader-name"
-                type="text"
-                name="uploaderName"
-                maxlength="60"
-                placeholder="Tell us who uploaded this"
-                autocomplete="name"
-                required
-              />
-            </label>
-
-            <label class="field-group">
-              <span class="field-label">What should this image be called?</span>
               <input
                 class="text-input answer-input-minimal"
                 id="answer-input"
                 type="text"
                 name="answer"
                 maxlength="80"
-                placeholder="Type the answer"
+                placeholder="What should this image be called?"
+                aria-label="What should this image be called?"
                 required
               />
             </label>
 
-            <button class="button button-primary" type="submit">Upload for review</button>
+            <button class="button button-primary upload-submit-button" type="submit">
+              Upload for review
+            </button>
           </div>
         </form>
 

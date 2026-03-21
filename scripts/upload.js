@@ -7,7 +7,7 @@ const uploadStatus = document.querySelector("#upload-status");
 const previewFrame = document.querySelector("#file-preview");
 const previewImage = document.querySelector("#preview-image");
 const answerPanel = document.querySelector("#answer-panel");
-const uploaderNameInput = document.querySelector("#uploader-name");
+const answerInput = document.querySelector("#answer-input");
 const dropZonePromptText = document.querySelector("#drop-zone-prompt-text");
 const DROP_ZONE_IDLE_TEXT = "Upload an image here";
 const DROP_ZONE_ACTIVE_TEXT = "Drop image";
@@ -16,6 +16,10 @@ let previewUrl = "";
 
 fileInput.addEventListener("change", () => {
   handleSelectedFile(fileInput.files?.[0] || null);
+});
+
+previewFrame?.addEventListener("click", () => {
+  fileInput.click();
 });
 
 uploadForm.addEventListener("submit", async (event) => {
@@ -34,17 +38,11 @@ uploadForm.addEventListener("submit", async (event) => {
   }
 
   const formData = new FormData(uploadForm);
-  const uploaderName = String(formData.get("uploaderName") || "").trim();
   const answer = String(formData.get("answer") || "").trim();
-
-  if (!uploaderName) {
-    setStatus(uploadStatus, "Add your name so the upload leaderboard can credit you.", "warning");
-    uploaderNameInput?.focus();
-    return;
-  }
 
   if (!answer) {
     setStatus(uploadStatus, "Add the correct answer for this image.", "warning");
+    answerInput?.focus();
     return;
   }
 
@@ -68,10 +66,22 @@ uploadForm.addEventListener("submit", async (event) => {
 
     s3FormData.append("file", file);
 
-    const uploadResponse = await fetch(uploadPayload.uploadUrl, {
-      method: uploadPayload.uploadMethod || "POST",
-      body: s3FormData,
-    });
+    let uploadResponse;
+
+    try {
+      uploadResponse = await fetch(uploadPayload.uploadUrl, {
+        method: uploadPayload.uploadMethod || "POST",
+        body: s3FormData,
+      });
+    } catch (error) {
+      if (error instanceof TypeError) {
+        throw new Error(
+          "The browser could not reach AWS for the upload. This is usually an S3 CORS issue. Make sure your bucket CORS allows POST from this site.",
+        );
+      }
+
+      throw error;
+    }
 
     if (!uploadResponse.ok) {
       throw new Error("The image upload failed before the submission could be saved.");
@@ -82,7 +92,6 @@ uploadForm.addEventListener("submit", async (event) => {
       body: {
         id: uploadPayload.id,
         imageKey: uploadPayload.imageKey,
-        uploaderName,
         answer,
       },
     });
@@ -179,8 +188,9 @@ function handleSelectedFile(file) {
   previewImage.src = previewUrl;
   previewFrame.hidden = false;
   answerPanel.hidden = false;
-  setStatus(uploadStatus, "Image selected. Add your name and the answer, then upload it.", "default");
-  uploaderNameInput?.focus();
+  uploadForm.dataset.hasFile = "true";
+  setStatus(uploadStatus, "", "default");
+  answerInput?.focus();
 }
 
 function hideAnswerPanel() {
@@ -189,6 +199,7 @@ function hideAnswerPanel() {
   }
 
   answerPanel.hidden = true;
+  delete uploadForm.dataset.hasFile;
 }
 
 function setDropZonePrompt(value) {

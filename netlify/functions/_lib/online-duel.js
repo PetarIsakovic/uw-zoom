@@ -42,11 +42,23 @@ export async function createPrivateOnlineDuelRoom({ origin, name, playerId, toke
   const existing = await getExistingPlayerState(origin, session);
 
   if (existing.status === ROOM_STATUS_WAITING || existing.status === ROOM_STATUS_LIVE) {
-    return {
-      ...existing,
+    if (existing.room?.type === ROOM_TYPE_PRIVATE) {
+      return {
+        ...existing,
+        playerId: session.playerId,
+        token: session.token,
+      };
+    }
+
+    if (existing.status === ROOM_STATUS_LIVE) {
+      throw new HttpError(409, "Leave your current live public match before creating a private room.");
+    }
+
+    await leaveOnlineDuel({
+      origin,
       playerId: session.playerId,
       token: session.token,
-    };
+    });
   }
 
   if (existing.status === "queued") {
@@ -470,19 +482,18 @@ export async function leaveOnlineDuel({ origin, playerId, token }) {
     };
   }
 
-  const opponent = room.players.find((player) => player.id !== session.playerId) || null;
+  if (room.status === ROOM_STATUS_LIVE) {
+    const nextRoom = await removePlayerFromPublicLiveRoom(room, session.playerId);
 
-  if (room.status !== ROOM_STATUS_FINISHED && opponent) {
-    room.players = room.players.filter((player) => player.id !== session.playerId);
-    delete room.scores[session.playerId];
-    delete room.currentRoundGuesses[session.playerId];
-    room.status = ROOM_STATUS_FINISHED;
-    room.finishedAt = new Date().toISOString();
-    room.winnerId = opponent.id;
-    room.endedReason = "forfeit";
-    room.updatedAt = room.finishedAt;
-    await finalizeRoom(room);
-    await persistRoom(room);
+    if (!nextRoom) {
+      await deleteObject(roomKey(room.id)).catch(() => {});
+      return {
+        success: true,
+        status: "idle",
+      };
+    }
+
+    await persistRoom(nextRoom);
   }
 
   return {
@@ -693,8 +704,8 @@ async function joinPublicRoom(origin, roomId, session) {
     await persistRoom(syncedRoom);
   }
 
-  if (syncedRoom.status !== ROOM_STATUS_WAITING) {
-    throw new HttpError(409, "That public room has already started.");
+  if (syncedRoom.status !== ROOM_STATUS_WAITING && syncedRoom.status !== ROOM_STATUS_LIVE) {
+    throw new HttpError(409, "That public room is not joinable anymore.");
   }
 
   const existingPlayer = syncedRoom.players.find((player) => player.id === session.playerId);
@@ -1430,6 +1441,33 @@ async function removePlayerFromPublicWaitingRoom(room, playerId) {
   return room;
 }
 
+async function removePlayerFromPublicLiveRoom(room, playerId) {
+  room.players = room.players.filter((player) => player.id !== playerId);
+  delete room.scores[playerId];
+  delete room.currentRoundGuesses[playerId];
+
+  if (!room.players.length) {
+    return null;
+  }
+
+  if (room.hostId === playerId) {
+    room.hostId = room.players[0]?.id || "";
+  }
+
+  if (room.players.length <= 1) {
+    room.status = ROOM_STATUS_FINISHED;
+    room.finishedAt = new Date().toISOString();
+    room.winnerId = room.players[0]?.id || "";
+    room.endedReason = "last-player-standing";
+    room.updatedAt = room.finishedAt;
+    await finalizeRoom(room);
+    return room;
+  }
+
+  room.updatedAt = new Date().toISOString();
+  return room;
+}
+
 async function findJoinablePublicRoom(origin, currentPlayerId) {
   const rooms = await listJson(`${ONLINE_ROOM_PREFIX}/`);
   const candidates = [];
@@ -1448,7 +1486,7 @@ async function findJoinablePublicRoom(origin, currentPlayerId) {
     }
 
     if (
-      syncedRoom.status === ROOM_STATUS_WAITING &&
+      (syncedRoom.status === ROOM_STATUS_WAITING || syncedRoom.status === ROOM_STATUS_LIVE) &&
       syncedRoom.players.length >= 1 &&
       syncedRoom.players.length < syncedRoom.maxPlayers &&
       !syncedRoom.players.some((player) => player.id === currentPlayerId)
@@ -1457,7 +1495,20 @@ async function findJoinablePublicRoom(origin, currentPlayerId) {
     }
   }
 
-  candidates.sort((left, right) => Date.parse(left.createdAt || 0) - Date.parse(right.createdAt || 0));
+  candidates.sort((left, right) => {
+    const leftPriority = left.status === ROOM_STATUS_LIVE ? 0 : 1;
+    const rightPriority = right.status === ROOM_STATUS_LIVE ? 0 : 1;
+
+    if (leftPriority !== rightPriority) {
+      return leftPriority - rightPriority;
+    }
+
+    if (left.players.length !== right.players.length) {
+      return right.players.length - left.players.length;
+    }
+
+    return Date.parse(left.createdAt || 0) - Date.parse(right.createdAt || 0);
+  });
   return candidates[0] || null;
 }
 

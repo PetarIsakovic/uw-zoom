@@ -16,8 +16,8 @@
 .upload-layout {
   width: min(1160px, 100%);
   margin: 0 auto;
-  padding: 0 clamp(1.2rem, 3vw, 2.25rem) 1.6rem;
-  min-height: calc(100dvh - 5.5rem);
+  padding: 0 clamp(1.2rem, 3vw, 2.25rem) 1rem;
+  min-height: calc(100dvh - 5rem);
   display: grid;
   align-items: stretch;
 }
@@ -34,8 +34,8 @@
 }
 
 .upload-panel {
-  min-height: calc(100dvh - 7.2rem);
-  padding: clamp(1rem, 2vw, 1.4rem);
+  min-height: calc(100dvh - 6.4rem);
+  padding: clamp(0.9rem, 1.8vw, 1.25rem);
   display: grid;
   grid-template-rows: minmax(0, 1fr) auto;
   align-content: stretch;
@@ -51,10 +51,30 @@
 .upload-form {
   display: grid;
   grid-template-rows: minmax(0, 1fr) auto auto;
-  gap: 0.85rem;
+  gap: 0.75rem;
   align-content: stretch;
   min-height: 0;
   height: 100%;
+}
+
+.upload-form[data-has-file="true"] {
+  grid-template-columns: minmax(0, 1.25fr) minmax(18rem, 0.8fr);
+  grid-template-rows: minmax(0, 1fr);
+  align-items: stretch;
+}
+
+.upload-form[data-has-file="true"] .drop-zone {
+  display: none;
+}
+
+.upload-form[data-has-file="true"] .file-preview {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.upload-form[data-has-file="true"] .answer-panel {
+  grid-column: 2;
+  grid-row: 1;
 }
 
 .upload-input-hidden {
@@ -155,21 +175,31 @@
   overflow: hidden;
   border-radius: var(--radius-lg);
   border: 1px solid rgba(17, 17, 17, 0.08);
+  min-height: 0;
+  height: 100%;
+  cursor: pointer;
 }
 
 .file-preview img {
   width: 100%;
-  aspect-ratio: 16 / 10;
+  height: 100%;
+  min-height: 15rem;
   object-fit: cover;
 }
 
 .answer-panel {
   display: grid;
-  gap: 0.9rem;
+  align-content: center;
+  gap: 0.8rem;
+  padding: 0.25rem 0;
 }
 
 .answer-input-minimal {
   font-size: 1.05rem;
+}
+
+.upload-submit-button {
+  min-height: 3.4rem;
 }
 
 .admin-lockup {
@@ -419,8 +449,18 @@
     min-height: auto;
   }
 
+  .upload-form[data-has-file="true"] {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto;
+  }
+
   .drop-zone {
     min-height: 22rem;
+  }
+
+  .file-preview img {
+    min-height: 12rem;
+    max-height: none;
   }
 
   .drop-zone-prompt {

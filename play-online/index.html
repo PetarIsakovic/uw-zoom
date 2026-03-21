@@ -11,6 +11,7 @@
     <script>
       (() => {
         const params = new URLSearchParams(window.location.search);
+        const shouldAutoCreatePrivateRoom = params.get("createPrivateRoom") === "1";
         const shouldSkipIntro =
           params.get("autoplay") === "1" ||
           (params.get("playerId") && params.get("token")) ||
@@ -18,6 +19,10 @@
 
         if (shouldSkipIntro) {
           document.documentElement.classList.add("play-online-skip-intro");
+        }
+
+        if (shouldAutoCreatePrivateRoom) {
+          document.documentElement.classList.add("play-online-skip-private-lobby");
         }
       })();
     </script>
@@ -123,82 +128,132 @@
         <section class="play-online-queue" id="online-queue" hidden>
           <div class="play-online-spinner" aria-hidden="true"></div>
           <div class="play-online-queue-copy">
-            <h2 id="online-queue-title">Finding a match...</h2>
-            <p id="online-queue-copy">Looking for another player right now.</p>
+            <h2 id="online-queue-title">Loading...</h2>
+            <p id="online-queue-copy">Getting things ready.</p>
           </div>
+          <section class="play-online-rules" aria-label="How the game works">
+            <div class="play-online-rules-copy">
+              <p class="eyebrow">How It Works</p>
+              <h3 class="play-online-rules-title">Everybody gets the same image at the same time.</h3>
+              <p class="play-online-rules-text">
+                It starts very zoomed in. Every 15 seconds it zooms out a little more for the
+                whole room. First correct guess wins the round.
+              </p>
+            </div>
+            <div class="play-online-rules-demo" aria-hidden="true">
+              <div class="play-online-rules-demo-stage">
+                <div class="play-online-rules-demo-image"></div>
+              </div>
+              <div class="play-online-rules-demo-steps">
+                <span></span>
+                <span></span>
+                <span></span>
+                <span></span>
+                <span></span>
+              </div>
+            </div>
+            <div class="play-online-rules-strip" aria-hidden="true">
+              <article class="play-online-rule-slide">
+                <p class="play-online-rule-slide-label">First Round</p>
+                <div class="play-online-rule-image play-online-rule-image-1"></div>
+                <p class="play-online-rule-caption">Tiny clue only</p>
+              </article>
+              <article class="play-online-rule-slide">
+                <p class="play-online-rule-slide-label">Second Round</p>
+                <div class="play-online-rule-image play-online-rule-image-2"></div>
+                <p class="play-online-rule-caption">A little more context</p>
+              </article>
+              <article class="play-online-rule-slide">
+                <p class="play-online-rule-slide-label">Third Round</p>
+                <div class="play-online-rule-image play-online-rule-image-3"></div>
+                <p class="play-online-rule-caption">You can start narrowing it down</p>
+              </article>
+              <article class="play-online-rule-slide">
+                <p class="play-online-rule-slide-label">Fourth Round</p>
+                <div class="play-online-rule-image play-online-rule-image-4"></div>
+                <p class="play-online-rule-caption">Enough for a strong guess</p>
+              </article>
+              <article class="play-online-rule-slide">
+                <p class="play-online-rule-slide-label">Final Round</p>
+                <div class="play-online-rule-image play-online-rule-image-5"></div>
+                <p class="play-online-rule-caption">If nobody got it yet, it fully reveals</p>
+              </article>
+            </div>
+          </section>
         </section>
 
         <section class="play-online-match" id="online-match" hidden>
-          <div class="play-online-scoreboard" id="online-scoreboard"></div>
-
-          <div class="play-online-round-bar">
-            <span class="play-online-round-label" id="online-round-label">Round 1 of 3</span>
-            <span class="play-online-timer-label" id="online-timer-label">Waiting to start</span>
-          </div>
-
           <div class="play-online-arena">
-            <div class="play-online-stage">
-              <div class="play-online-image-frame">
-                <div class="play-online-image-loading" id="online-image-loading">
-                  <div class="play-online-spinner" aria-hidden="true"></div>
-                  <p class="play-online-image-loading-copy" id="online-image-loading-copy">
-                    Waiting for round...
-                  </p>
-                </div>
-                <img id="online-game-image" alt="Current online duel round" />
-              </div>
-            </div>
-
-            <aside class="play-online-feed">
-              <section class="play-online-feed-card">
-                <h2>Round status</h2>
-                <p class="play-online-feed-copy" id="online-round-status">
-                  Match updates will appear here.
-                </p>
+            <aside class="play-online-side-column play-online-players-column">
+              <section class="play-online-side-card">
+                <h2>Players</h2>
+                <div class="play-online-scoreboard" id="online-scoreboard"></div>
               </section>
 
-              <section class="play-online-feed-card">
-                <h2>Your guesses</h2>
-                <ul class="play-online-guess-list" id="your-guess-list"></ul>
-              </section>
-
-              <section class="play-online-feed-card">
-                <h2>Room guesses</h2>
-                <ul class="play-online-guess-list" id="online-room-guess-list"></ul>
-              </section>
-
-              <section class="play-online-feed-card">
+              <section class="play-online-side-card">
                 <h2>Rounds</h2>
                 <ul class="play-online-round-history" id="online-round-history"></ul>
               </section>
             </aside>
-          </div>
 
-          <form class="play-online-guess-form" id="online-guess-form" autocomplete="off">
-            <label class="field-group play-online-guess-field" for="online-guess-input">
-              <span class="field-label">Your guess</span>
-              <div class="autocomplete-shell play-online-autocomplete-shell">
-                <div class="autocomplete-ghost" aria-hidden="true">
-                  <span class="autocomplete-typed" id="online-ghost-typed"></span><span
-                    class="autocomplete-suffix"
-                    id="online-ghost-suffix"
-                  ></span>
-                </div>
-                <input
-                  class="text-input autocomplete-input"
-                  id="online-guess-input"
-                  name="guess"
-                  type="text"
-                  maxlength="80"
-                  placeholder="WatCard, Dana Porter, goose..."
-                  required
-                />
+            <div class="play-online-center-column">
+              <div class="play-online-round-bar">
+                <span class="play-online-round-label" id="online-round-label">Round 1 of 3</span>
+                <span class="play-online-timer-label" id="online-timer-label">Waiting to start</span>
               </div>
-            </label>
-            <button class="button button-primary" id="online-guess-button" type="submit">
-              Guess
-            </button>
-          </form>
+
+              <div class="play-online-stage">
+                <div class="play-online-image-frame">
+                  <div class="play-online-image-loading" id="online-image-loading">
+                    <div class="play-online-spinner" aria-hidden="true"></div>
+                    <p class="play-online-image-loading-copy" id="online-image-loading-copy">
+                      Waiting for round...
+                    </p>
+                  </div>
+                  <img id="online-game-image" alt="Current online duel round" />
+                </div>
+              </div>
+            </div>
+
+            <aside class="play-online-side-column play-online-chat-column">
+              <section class="play-online-side-card play-online-chat-card">
+                <h2>Chat</h2>
+                <p class="play-online-feed-copy" id="online-round-status">
+                  Match updates will appear here.
+                </p>
+
+                <div class="play-online-chat-log">
+                  <ul class="play-online-guess-list" id="online-room-guess-list"></ul>
+                </div>
+
+                <form class="play-online-guess-form" id="online-guess-form" autocomplete="off">
+                  <label class="field-group play-online-guess-field" for="online-guess-input">
+                    <span class="field-label">Your guess</span>
+                    <div class="autocomplete-shell play-online-autocomplete-shell">
+                      <div class="autocomplete-ghost" aria-hidden="true">
+                        <span class="autocomplete-typed" id="online-ghost-typed"></span><span
+                          class="autocomplete-suffix"
+                          id="online-ghost-suffix"
+                        ></span>
+                      </div>
+                      <input
+                        class="text-input autocomplete-input"
+                        id="online-guess-input"
+                        name="guess"
+                        type="text"
+                        maxlength="80"
+                        placeholder="WatCard, Dana Porter, goose..."
+                        required
+                      />
+                    </div>
+                  </label>
+                  <button class="button button-primary" id="online-guess-button" type="submit">
+                    Guess
+                  </button>
+                </form>
+              </section>
+            </aside>
+          </div>
         </section>
 
         <section class="play-online-summary" id="online-summary" hidden>
