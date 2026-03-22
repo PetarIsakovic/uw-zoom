@@ -607,15 +607,16 @@ async function submitGuess() {
     return;
   }
 
-  const guess = normalizeGuessDisplay(guessInput?.value || "");
+  const rawGuess = String(guessInput?.value || "").trim().slice(0, 80);
+  const displayGuess = normalizeGuessDisplay(rawGuess);
 
-  if (!guess) {
+  if (!rawGuess) {
     setStatus(onlineStatus, "Type a guess before sending it.", "warning");
     guessInput?.focus();
     return;
   }
 
-  const pendingEntry = createPendingRoomGuess(guess);
+  const pendingEntry = createPendingRoomGuess(displayGuess);
 
   try {
     pushPendingRoomGuess(pendingEntry);
@@ -630,7 +631,7 @@ async function submitGuess() {
       body: {
         playerId: state.playerId,
         token: state.token,
-        guess,
+        guess: rawGuess,
       },
     });
 
@@ -639,7 +640,7 @@ async function submitGuess() {
   } catch (error) {
     removePendingRoomGuess(pendingEntry.localId);
     rerenderActiveRoom();
-    guessInput.value = guess;
+    guessInput.value = rawGuess;
     updateAutocomplete();
     guessInput.focus();
     guessInput.setSelectionRange(guessInput.value.length, guessInput.value.length);
