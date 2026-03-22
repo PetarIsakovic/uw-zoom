@@ -137,37 +137,40 @@ Just the message. Nothing else.`;
 }
 
 const STATIC_WRONG_GUESSES = [
-  "suzzallo library", "red square", "drumheller fountain", "hub", "odegaard",
-  "kane hall", "mary gates hall", "bagley hall", "mgh", "savery hall",
-  "denny hall", "mueller hall", "raitt hall", "johnson hall", "guggenheim hall",
-  "lander hall", "mcmahon hall", "haggett hall", "terry hall", "mercer hall",
-  "uw medical center", "health sciences", "padelford", "gould hall", "architecture hall",
-  "more hall", "loew hall", "roberts hall", "physics astronomy building",
-  "burke museum", "henry art gallery", "meany hall", "smith hall",
-  "condon hall", "gowen hall", "communications building", "allen library",
-  "fisheries", "oceanography building", "union bay", "portage bay",
+  "Dana Porter", "Davis Centre", "MC building", "SLC", "PAC",
+  "E7", "E5", "E3", "QNC", "RCH", "CPH", "Needles Hall",
+  "Fed Hall", "CIF", "Columbia Lake", "Ring Road", "Arts Quad",
+  "DC Library", "DP Library", "Tatham Centre", "SCH", "EV3",
+  "Village 1", "Ron Eydt", "MKV", "CLV", "Hagey Hall",
+  "Physics building", "Chemistry building", "Perimeter Institute",
+  "Conrad Grebel", "St. Jerome's", "Renison", "Engineering fountain",
+  "campus green", "parking garage", "Rock Garden", "footbridge",
 ];
 
 /**
  * Generate a plausible-but-wrong UW campus location guess.
  * Returns a string (always — falls back to static list).
  */
-export async function generateBotWrongGuess({ zoomStepIndex }) {
+export async function generateBotWrongGuess({ zoomStepIndex, answer }) {
   if (!isConfigured()) {
     return STATIC_WRONG_GUESSES[Math.floor(Math.random() * STATIC_WRONG_GUESSES.length)];
   }
 
-  const context = zoomStepIndex === 0
-    ? "the photo is extremely zoomed in — almost nothing is visible"
+  const clarity = zoomStepIndex === 0
+    ? "extremely zoomed in, almost nothing visible"
     : zoomStepIndex === 1
-    ? "the photo has zoomed out a little but it's still vague"
-    : "the photo is clearer now — you can start to make out some details";
+    ? "zoomed out a bit, still pretty vague"
+    : "clearer now, can make out some details";
 
-  const userMessage = `You're playing a UW Seattle campus photo guessing game. ${context}.
+  const answerHint = answer
+    ? `The correct answer is "${answer}" — do NOT say that. Guess something in the same category or nearby on campus. For example, if the answer is a library, guess a different building; if it's a path or outdoor area, guess a similar one.`
+    : "Guess a real UW Waterloo campus building, area, or landmark.";
 
-Make a wrong guess — a real UW Seattle campus building, area, or landmark. Just the name, nothing else. 1-5 words max. Don't say the actual correct answer — just pick a plausible place on campus.
+  const userMessage = `UW Waterloo campus photo guessing game. Photo clarity: ${clarity}.
 
-Just the location name. Nothing else.`;
+${answerHint}
+
+Reply with just the wrong guess — 1-4 words, nothing else.`;
 
   try {
     const text = await callNova(BOT_PERSONA, userMessage, 20);

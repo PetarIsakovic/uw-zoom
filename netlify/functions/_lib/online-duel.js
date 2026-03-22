@@ -1080,7 +1080,7 @@ async function syncBotActions(room, now) {
     if (guessCorrect) {
       guessText = currentRound.answer;
     } else {
-      guessText = await generateBotWrongGuess({ zoomStepIndex });
+      guessText = await generateBotWrongGuess({ zoomStepIndex, answer: currentRound.answer });
     }
 
     const normalizedGuessText = normalizeGuessDisplay(guessText);
