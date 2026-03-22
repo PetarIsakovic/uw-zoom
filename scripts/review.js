@@ -271,6 +271,40 @@ function renderOnlineStats(payload) {
     return;
   }
 
+  // Bot toggle
+  const botCard = document.createElement("article");
+  botCard.className = "review-card";
+  const botEnabled = payload.botEnabled !== false;
+  const botToggleBtn = document.createElement("button");
+  botToggleBtn.className = `button ${botEnabled ? "button-destructive" : "button-primary"}`;
+  botToggleBtn.type = "button";
+  botToggleBtn.textContent = botEnabled ? "Disable AI bot" : "Enable AI bot";
+  botCard.innerHTML = `
+    <div class="review-section-head">
+      <h3>AI bot</h3>
+      <p>When enabled, solo players are instantly paired with an AI bot instead of waiting in queue. Currently: <strong>${botEnabled ? "enabled" : "disabled"}</strong>.</p>
+    </div>
+  `;
+  botCard.append(botToggleBtn);
+  botToggleBtn.addEventListener("click", async () => {
+    botToggleBtn.disabled = true;
+    botToggleBtn.textContent = "Saving...";
+    try {
+      await requestJson("/api/admin-bot-settings", {
+        method: "POST",
+        headers: adminHeaders(),
+        body: { enabled: !botEnabled },
+      });
+      // Refresh stats to reflect new state
+      await loadAdminData();
+    } catch (err) {
+      botToggleBtn.disabled = false;
+      botToggleBtn.textContent = botEnabled ? "Disable AI bot" : "Enable AI bot";
+      alert(`Failed: ${err.message}`);
+    }
+  });
+  onlineStatsList.append(botCard);
+
   const summaryGrid = document.createElement("div");
   summaryGrid.className = "review-stats-grid";
 

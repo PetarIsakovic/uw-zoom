@@ -48,6 +48,9 @@ const summaryTitle = document.querySelector("#online-summary-title");
 const summaryCopy = document.querySelector("#online-summary-copy");
 const findAnotherMatchButton = document.querySelector("#find-another-match-button");
 const settingsButton = document.querySelector("#online-settings-button");
+const roundPopup = document.querySelector("#online-round-popup");
+const roundPopupTitle = document.querySelector("#online-round-popup-title");
+const roundPopupScores = document.querySelector("#online-round-popup-scores");
 const settingsPopup = document.querySelector("#online-settings-popup");
 const settingsClose = document.querySelector("#online-settings-close");
 const settingsLeave = document.querySelector("#online-settings-leave");
@@ -116,6 +119,7 @@ const state = {
   soundLastRoundNumber: null,
   soundLastResolvedAt: null,
   soundLastGuessCount: 0,
+  soundLastChatCount: 0,
   soundLastTimerSeconds: null,
 };
 
@@ -146,7 +150,9 @@ function detectAndPlaySounds(room, snapshot) {
   const roundNumber = round?.roundNumber ?? null;
   const resolvedAt = round?.resolvedAt ?? null;
   const playerCount = room.playerCount ?? 0;
-  const guessCount = getVisibleRoomGuesses(room).filter((g) => !g.isChat).length;
+  const allRoomGuesses = getVisibleRoomGuesses(room);
+  const guessCount = allRoomGuesses.filter((g) => !g.isChat).length;
+  const chatCount = allRoomGuesses.filter((g) => g.isChat && g.playerId !== room.you?.id).length;
   const timerSeconds = snapshot.timerCount ?? null;
 
   if (!state.soundInitialized) {
@@ -154,6 +160,7 @@ function detectAndPlaySounds(room, snapshot) {
     state.soundLastRoundNumber = roundNumber;
     state.soundLastResolvedAt = resolvedAt;
     state.soundLastGuessCount = guessCount;
+    state.soundLastChatCount = chatCount;
     state.soundLastTimerSeconds = timerSeconds;
     state.soundInitialized = true;
     return;
@@ -178,6 +185,11 @@ function detectAndPlaySounds(room, snapshot) {
     playSound("playerGuessed");
   }
   state.soundLastGuessCount = guessCount;
+
+  if (chatCount > state.soundLastChatCount) {
+    playSound("playerGuessed");
+  }
+  state.soundLastChatCount = chatCount;
 
   if (timerSeconds !== null && timerSeconds <= 5 && timerSeconds !== state.soundLastTimerSeconds) {
     playSound("tick");
@@ -208,6 +220,17 @@ window.addEventListener("pagehide", () => {
 
 window.addEventListener("beforeunload", () => {
   leaveSessionOnExit();
+});
+
+// Auto-redirect keystrokes to the guess input when in-game
+document.addEventListener("keydown", (e) => {
+  if (!guessInput) return;
+  if (document.activeElement === guessInput) return;
+  // Only redirect printable characters, not modifier-only or control keys
+  if (e.key.length !== 1 || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (!document.body.classList.contains("play-online-in-game")) return;
+  if (guessInput.dataset.canGuess !== "true") return;
+  guessInput.focus();
 });
 
 window.addEventListener("pageshow", (event) => {
@@ -914,6 +937,7 @@ function renderLive(room) {
 function renderFinished(room) {
   document.body.classList.remove("play-online-in-game");
   document.body.classList.remove("play-online-in-lobby");
+  if (roundPopup) roundPopup.hidden = true;
   resetSoundTracking();
   stopQueueTitleAnimation();
   heroSection.hidden = true;
@@ -968,6 +992,21 @@ function updateRoomSnapshot(room = state.latestPayload?.room) {
     const hint = room.currentRound?.letterHint || "";
     letterHintEl.textContent = hint;
     letterHintEl.hidden = !hint;
+  }
+
+  if (roundPopup) {
+    roundPopup.hidden = !snapshot.isIntermission;
+    if (snapshot.isIntermission) {
+      if (roundPopupTitle) roundPopupTitle.textContent = buildResolvedRoundMessage(room);
+      if (roundPopupScores) {
+        const scores = (room.players || [])
+          .slice()
+          .sort((a, b) => (b.score || 0) - (a.score || 0))
+          .map((p) => `${p.name}: ${p.score || 0} pt${p.score === 1 ? "" : "s"}`)
+          .join("  ·  ");
+        roundPopupScores.textContent = scores;
+      }
+    }
   }
 
   if (room.status === "live") {
@@ -1062,6 +1101,7 @@ function deriveRoundSnapshot(room) {
       zoomScale: 1,
       overlayText: "",
       canGuess: false,
+      isIntermission: !isFinished && remaining > 0,
     };
   }
 
@@ -1100,13 +1140,15 @@ function deriveRoundSnapshot(room) {
   const nextZoomInMs = zoomIndex < zoomLevels.length - 1 ? Math.max(0, nextStepAt - elapsed) : 0;
   const endsInMs = Math.max(0, roundDurationMs - elapsed);
 
+  const alreadyCorrect = (room.currentRound?.youGuesses || []).some((g) => g.correct);
+
   return {
     timerCount: Math.ceil(endsInMs / 1000),
     timerContext: nextZoomInMs > 0 ? "Next zoom in" : "Round ends in",
-    statusText: "First correct guess wins the round.",
+    statusText: alreadyCorrect ? "Correct! Waiting for other players..." : "",
     zoomScale: zoomLevels[zoomIndex],
     overlayText: "",
-    canGuess: true,
+    canGuess: !alreadyCorrect,
   };
 }
 
@@ -1350,7 +1392,13 @@ function renderGuessHistory(container, guesses, emptyText) {
 
     const body = document.createElement("span");
     body.className = "play-online-chat-body";
-    body.textContent = entry.correct ? `${displayGuess} ✓` : displayGuess;
+    if (entry.correct && entry.points > 0) {
+      body.textContent = `${displayGuess} ✓ (+${entry.points} pts)`;
+    } else if (entry.correct) {
+      body.textContent = `${displayGuess} ✓`;
+    } else {
+      body.textContent = displayGuess;
+    }
 
     if (entry.correct) {
       item.dataset.correct = "true";
@@ -1624,16 +1672,17 @@ function resolvePlayerScore(room, playerId) {
 
 function buildResolvedRoundMessage(room) {
   const round = room.currentRound;
+  const answer = round?.answer || "unknown";
 
   if (!round?.winnerId) {
-    return `Nobody got this round. The answer was ${round?.answer || "unknown"}.`;
+    return `Round over. Nobody guessed it. The answer was ${answer}.`;
   }
 
   if (round.winnerId === room.you?.id) {
-    return `You won the round with "${round.winningGuess}". The answer was ${round.answer}.`;
+    return `Round over! You were first with "${round.winningGuess}". The answer was ${answer}.`;
   }
 
-  return `${round.winnerName || "Another player"} won the round with "${round.winningGuess}". The answer was ${round.answer}.`;
+  return `Round over! ${round.winnerName || "Another player"} was first. The answer was ${answer}.`;
 }
 
 function startRoomTicker() {

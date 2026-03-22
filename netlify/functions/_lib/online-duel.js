@@ -10,6 +10,7 @@ const ONLINE_QUEUE_PREFIX = "app/online-duel/queue";
 const ONLINE_PLAYER_PREFIX = "app/online-duel/players";
 const ONLINE_ROOM_PREFIX = "app/online-duel/rooms";
 const ONLINE_WINS_KEY = "app/online-duel/wins.json";
+const ONLINE_SETTINGS_KEY = "app/online-duel/settings.json";
 
 const ROOM_TYPE_PUBLIC = "public";
 const ROOM_TYPE_PRIVATE = "private";
@@ -305,7 +306,26 @@ export async function joinOnlineDuel({ origin, name, playerId, token, avatar, ro
     };
   }
 
-  // No human opponents — pair with a bot and start immediately
+  // No human opponents — check if bot is enabled, then pair with a bot or queue the player
+  const settings = await loadOnlineDuelSettings();
+
+  if (!settings.botEnabled) {
+    // Bot disabled — queue the player and wait for a human
+    await putJson(queueEntryKey(session.playerId), {
+      playerId: session.playerId,
+      token: session.token,
+      name: normalizeName(session.name),
+      avatar: normalizeAvatarSelection(session.avatar),
+      joinedAt: new Date().toISOString(),
+    });
+    return {
+      status: "queued",
+      playerId: session.playerId,
+      token: session.token,
+      room: null,
+    };
+  }
+
   const bot = createBotSession();
   const room = await createRoom(origin, [session, bot], {
     type: ROOM_TYPE_PUBLIC,
@@ -389,6 +409,22 @@ export async function getOnlineDuelState({ origin, playerId, token }) {
   };
 }
 
+async function loadOnlineDuelSettings() {
+  try {
+    const data = await getJson(ONLINE_SETTINGS_KEY);
+    return { botEnabled: data?.botEnabled !== false };
+  } catch {
+    return { botEnabled: true };
+  }
+}
+
+export async function adminSetBotEnabled({ enabled }) {
+  requireOnlineStorage();
+  const settings = { botEnabled: Boolean(enabled) };
+  await putJson(ONLINE_SETTINGS_KEY, settings);
+  return settings;
+}
+
 export async function adminEndOnlineDuelRoom({ roomId }) {
   requireOnlineStorage();
 
@@ -414,7 +450,7 @@ export async function adminEndOnlineDuelRoom({ roomId }) {
 export async function loadOnlineDuelAdminStats() {
   requireOnlineStorage();
 
-  const queueEntries = await loadActiveQueueEntries();
+  const [queueEntries, settings] = await Promise.all([loadActiveQueueEntries(), loadOnlineDuelSettings()]);
   const roomEntries = await listJson(`${ONLINE_ROOM_PREFIX}/`);
   const activeRooms = [];
   let totalGamesPlayed = 0;
@@ -466,6 +502,7 @@ export async function loadOnlineDuelAdminStats() {
 
   return {
     updatedAt: new Date().toISOString(),
+    botEnabled: settings.botEnabled,
     totals: {
       totalGamesPlayed,
       activeGames: activeRooms.length,
@@ -551,8 +588,21 @@ export async function submitOnlineDuelGuess({ origin, playerId, token, guess }) 
     });
   }
 
+  // Don't let a player guess again after already getting it right
+  if (playerGuesses.some((g) => g.correct)) {
+    throw new HttpError(409, "You already guessed correctly this round.");
+  }
+
   const canonicalGuess = normalizeGuessDisplay(guess);
   const correct = isCorrectGuess(normalizedGuess, currentRound);
+
+  // Calculate time-based points (1–10) for correct guesses
+  const roundStartedAtMs = Date.parse(room.currentRoundStartedAt || "");
+  const roundDurationMs = room.rounds[room.currentRoundIndex]?.zoomStepDurationsMs?.reduce((s, d) => s + d, 0)
+    || ROUND_DURATION_MS;
+  const elapsed = Number.isFinite(roundStartedAtMs) ? Math.max(0, now - roundStartedAtMs) : roundDurationMs;
+  const timeRemaining = Math.max(0, roundDurationMs - elapsed);
+  const points = correct ? Math.max(1, Math.round((timeRemaining / roundDurationMs) * 10)) : 0;
 
   room.currentRoundGuesses = {
     ...room.currentRoundGuesses,
@@ -561,18 +611,23 @@ export async function submitOnlineDuelGuess({ origin, playerId, token, guess }) 
       {
         guess: canonicalGuess,
         correct,
+        points,
         at: new Date(now).toISOString(),
       },
     ]),
   };
 
   if (correct) {
-    resolveCurrentRound(room, {
-      winnerId: session.playerId,
-      winningGuess: canonicalGuess,
-      resolvedAt: now,
-      reason: "guess",
+    // Round ends only when every real (non-bot) player has guessed correctly
+    const realPlayers = room.players.filter((p) => p.id !== room.botPlayerId);
+    const allGuessedCorrectly = realPlayers.every((p) => {
+      const guesses = room.currentRoundGuesses[p.id] || [];
+      return guesses.some((g) => g.correct);
     });
+
+    if (allGuessedCorrectly) {
+      resolveCurrentRound(room, { resolvedAt: now, reason: "guess" });
+    }
   }
 
   const syncedRoom = await syncRoom(room);
@@ -1159,7 +1214,8 @@ async function syncRoom(room) {
       break;
     }
 
-    if (nextRoom.players.length <= 1) {
+    const realPlayers = nextRoom.players.filter((p) => p.id !== nextRoom.botPlayerId);
+    if (realPlayers.length === 0) {
       nextRoom.status = ROOM_STATUS_FINISHED;
       nextRoom.finishedAt = new Date(now).toISOString();
       nextRoom.winnerId = nextRoom.players[0]?.id || "";
@@ -1170,11 +1226,8 @@ async function syncRoom(room) {
     }
 
     if (nextRoom.currentRoundIndex >= nextRoom.rounds.length) {
-      nextRoom.status = ROOM_STATUS_FINISHED;
-      nextRoom.finishedAt = new Date(now).toISOString();
-      nextRoom.winnerId = resolveMatchWinnerId(nextRoom);
-      nextRoom.endedReason = nextRoom.endedReason || "completed";
-      nextRoom.updatedAt = nextRoom.finishedAt;
+      nextRoom.currentRoundIndex = 0;
+      nextRoom.updatedAt = new Date(now).toISOString();
       changed = true;
       continue;
     }
@@ -1185,16 +1238,6 @@ async function syncRoom(room) {
     if (Number.isFinite(roundResolvedAtMs)) {
       if (now < roundResolvedAtMs + ROUND_INTERMISSION_MS) {
         break;
-      }
-
-      if (shouldFinishMatch(nextRoom)) {
-        nextRoom.status = ROOM_STATUS_FINISHED;
-        nextRoom.finishedAt = new Date(now).toISOString();
-        nextRoom.winnerId = resolveMatchWinnerId(nextRoom);
-        nextRoom.endedReason = nextRoom.endedReason || "completed";
-        nextRoom.updatedAt = nextRoom.finishedAt;
-        changed = true;
-        continue;
       }
 
       nextRoom.currentRoundIndex += 1;
@@ -1272,27 +1315,40 @@ function resolveCurrentRound(room, payload) {
 
   const currentRound = room.rounds[room.currentRoundIndex];
   const resolvedAt = toIso(payload.resolvedAt);
-  const winnerId = String(payload.winnerId || "");
-  const winningGuess = String(payload.winningGuess || "").trim();
 
   room.currentRoundResolvedAt = resolvedAt;
-  room.currentRoundWinnerId = winnerId;
-  room.currentRoundWinningGuess = winningGuess;
   room.updatedAt = resolvedAt;
 
-  if (winnerId) {
-    room.scores = {
-      ...room.scores,
-      [winnerId]: normalizeScore(room.scores[winnerId]) + 1,
-    };
+  // Award time-based points to all players who guessed correctly this round
+  let topPlayerId = "";
+  let topPoints = 0;
+  let topGuess = "";
+
+  for (const [pId, entries] of Object.entries(room.currentRoundGuesses || {})) {
+    const correctEntry = Array.isArray(entries) ? entries.find((e) => e.correct) : null;
+    const pts = correctEntry?.points || 0;
+    if (pts > 0) {
+      room.scores = {
+        ...room.scores,
+        [pId]: normalizeScore(room.scores[pId]) + pts,
+      };
+      if (pts > topPoints || (pts === topPoints && !topPlayerId)) {
+        topPoints = pts;
+        topPlayerId = pId;
+        topGuess = correctEntry.guess;
+      }
+    }
   }
+
+  room.currentRoundWinnerId = topPlayerId;
+  room.currentRoundWinningGuess = topGuess;
 
   room.completedRounds.push({
     roundNumber: room.currentRoundIndex + 1,
-    winnerId,
-    winningGuess,
+    winnerId: topPlayerId,
+    winningGuess: topGuess,
     answer: currentRound.answer,
-    reason: payload.reason || (winnerId ? "guess" : "timeout"),
+    reason: payload.reason || (topPlayerId ? "guess" : "timeout"),
     resolvedAt,
   });
 }
@@ -1528,6 +1584,7 @@ function getPublicGuesses(guesses) {
     ? guesses.map((entry) => ({
         guess: entry.guess,
         correct: Boolean(entry.correct),
+        points: entry.points || 0,
       }))
     : [];
 }
@@ -1540,12 +1597,16 @@ function getPublicRoomGuesses(guessesByPlayer, players, currentPlayerId, chatMes
     for (const [playerId, entries] of Object.entries(guessesByPlayer)) {
       if (!Array.isArray(entries)) continue;
       const playerName = playerLookup.get(playerId) || "Player";
+      const isOtherPlayer = playerId !== currentPlayerId;
       for (const entry of entries) {
+        const correct = Boolean(entry.correct);
+        // Hide other players' correct answers — just show they got it
+        const guessText = correct && isOtherPlayer ? "Got it!" : entry.guess;
         guesses.push({
           playerId,
           playerName,
-          guess: entry.guess,
-          correct: Boolean(entry.correct),
+          guess: guessText,
+          correct,
           at: entry.at || "",
         });
       }
