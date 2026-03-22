@@ -577,6 +577,8 @@
 
 .wordmark-accent {
   color: var(--accent);
+  -webkit-text-stroke: 1.5px #111111;
+  paint-order: stroke fill;
 }
 
 .wordmark-fill {
