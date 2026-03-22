@@ -29,7 +29,7 @@ export async function isIpBanned(ip) {
   return entries.some((entry) => entry.ip === normalizedIp);
 }
 
-export async function requireNotBanned(event, scope = "using this part of UW Zoom") {
+export async function requireNotBanned(event, scope = "using this part of uwZoom.com") {
   const ip = getClientIp(event);
 
   if (await isIpBanned(ip)) {
