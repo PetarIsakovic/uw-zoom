@@ -35,6 +35,7 @@ const summarySection = document.querySelector("#online-summary");
 const scoreboard = document.querySelector("#online-scoreboard");
 const timerLabel = document.querySelector("#online-timer-label");
 const timerContext = document.querySelector("#online-timer-context");
+const clockTimer = document.querySelector(".play-online-clock-timer");
 const roundStatus = document.querySelector("#online-round-status");
 const roundHistory = document.querySelector("#online-round-history");
 const yourGuessList = document.querySelector("#your-guess-list");
@@ -897,6 +898,7 @@ function renderWaitingRoom(room) {
 function renderLive(room) {
   document.body.classList.add("play-online-in-game");
   document.body.classList.remove("play-online-in-lobby");
+  if (clockTimer) clockTimer.hidden = false;
   stopQueueTitleAnimation();
   const showSingleLoadingScreen = !state.hasRevealedLiveMatch && shouldHoldLiveReveal(room);
 
@@ -941,6 +943,7 @@ function renderFinished(room) {
   document.body.classList.remove("play-online-in-game");
   document.body.classList.remove("play-online-in-lobby");
   if (roundPopup) roundPopup.hidden = true;
+  if (clockTimer) clockTimer.hidden = true;
   resetSoundTracking();
   stopQueueTitleAnimation();
   heroSection.hidden = true;
