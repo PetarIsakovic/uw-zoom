@@ -31,7 +31,7 @@ const ROUND_COUNT = 3;
 const ROUND_COUNTDOWN_MS = 0;
 const ROUND_INTERMISSION_MS = 3500;
 // Each zoom level lasts a different amount of time (most → least zoomed in)
-const ZOOM_STEP_DURATIONS_MS = [20000, 15000, 10000, 5000];
+const ZOOM_STEP_DURATIONS_MS = [32000, 24000, 16000, 8000];
 const ZOOM_LEVELS = [4.6, 3.2, 2.2, 1.0];
 const ROUND_STEP_MS = ZOOM_STEP_DURATIONS_MS[0]; // kept for bot zoom-step index calc
 const ROUND_DURATION_MS = ZOOM_STEP_DURATIONS_MS.reduce((s, d) => s + d, 0);
