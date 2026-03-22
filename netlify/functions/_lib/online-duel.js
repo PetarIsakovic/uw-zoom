@@ -497,7 +497,22 @@ export async function submitOnlineDuelGuess({ origin, playerId, token, guess }) 
   const now = Date.now();
 
   if (room.status === ROOM_STATUS_WAITING) {
-    throw new HttpError(409, "The host has not started this room yet.");
+    // In the lobby, store messages as chat so all players can see them
+    const normalizedGuess = normalizeGuess(guess);
+    if (!normalizedGuess) throw new HttpError(400, "Type a message before sending.");
+    if (!Array.isArray(room.roomChatMessages)) room.roomChatMessages = [];
+    const playerName = room.players.find((p) => p.id === session.playerId)?.name || "Player";
+    room.roomChatMessages = [
+      ...room.roomChatMessages,
+      { playerId: session.playerId, name: playerName, text: normalizedGuess, at: new Date(now).toISOString() },
+    ].slice(-50);
+    await saveRoom(origin, room);
+    return {
+      status: ROOM_STATUS_WAITING,
+      playerId: session.playerId,
+      token: session.token,
+      room: buildPublicRoomState(room, session.playerId, origin),
+    };
   }
 
   if (room.status === ROOM_STATUS_FINISHED) {
@@ -968,106 +983,49 @@ async function syncBotActions(room, now) {
   const elapsedMs = now - roundStartedAtMs;
   const zoomStepIndex = zoomStepIndexForElapsed(elapsedMs);
 
-  // At step 3+ guess correctly to end the round (always fires regardless of human activity)
   const lastActionAtMs = Date.parse(room.botLastActionAt || "");
-  if (zoomStepIndex >= BOT_CORRECT_GUESS_MIN_STEP) {
-    const isFast = Math.random() < 0.6;
-    const nextActionInterval = isFast
-      ? BOT_GUESS_FAST_MIN_MS + Math.floor(Math.random() * (BOT_GUESS_FAST_MAX_MS - BOT_GUESS_FAST_MIN_MS))
-      : BOT_GUESS_SLOW_MIN_MS + Math.floor(Math.random() * (BOT_GUESS_SLOW_MAX_MS - BOT_GUESS_SLOW_MIN_MS));
-    if (Number.isFinite(lastActionAtMs) && now - lastActionAtMs < nextActionInterval) return false;
 
-    const botGuesses = Array.isArray(room.currentRoundGuesses?.[room.botPlayerId])
-      ? room.currentRoundGuesses[room.botPlayerId]
-      : [];
-    room.currentRoundGuesses = {
-      ...room.currentRoundGuesses,
-      [room.botPlayerId]: trimGuessHistory([
-        ...botGuesses,
-        { guess: currentRound.answer, correct: true, at: new Date(now).toISOString() },
-      ]),
-    };
-    resolveCurrentRound(room, {
-      winnerId: room.botPlayerId,
-      winningGuess: currentRound.answer,
-      resolvedAt: now,
-      reason: "guess",
-    });
-    room.botLastActionAt = new Date(now).toISOString();
-    return true;
-  }
+  // Count all human messages this round (guesses + chats)
+  const allHumanMessages = Object.entries(room.currentRoundGuesses || {})
+    .filter(([pid]) => pid !== room.botPlayerId)
+    .flatMap(([, entries]) => (Array.isArray(entries) ? entries : []));
 
-  // All other bot actions only fire if the human has said something since the bot last acted
+  // Bot only engages after human has sent at least 2 messages
+  if (allHumanMessages.length < 2) return false;
+
+  // Only act if human has said something since bot last acted
   const lastHumanActivityMs = Math.max(
-    ...Object.entries(room.currentRoundGuesses || {})
-      .filter(([pid]) => pid !== room.botPlayerId)
-      .flatMap(([, entries]) => (Array.isArray(entries) ? entries : []))
-      .map((g) => Date.parse(g.at || "") || 0),
+    ...allHumanMessages.map((g) => Date.parse(g.at || "") || 0),
     ...(room.roomChatMessages || [])
       .filter((m) => m.playerId !== room.botPlayerId)
       .map((m) => Date.parse(m.at || "") || 0),
     0,
   );
 
-  // No human activity yet, or bot already responded to the latest human message
   if (lastHumanActivityMs === 0 || (Number.isFinite(lastActionAtMs) && lastActionAtMs > lastHumanActivityMs)) {
     return false;
   }
 
   // Collect unresponded human messages since last bot action
   const sinceMs = Number.isFinite(lastActionAtMs) ? lastActionAtMs : 0;
-  const humanGuesses = Object.entries(room.currentRoundGuesses || {})
-    .filter(([pid]) => pid !== room.botPlayerId)
-    .flatMap(([, entries]) => (Array.isArray(entries) ? entries : []))
-    .filter((g) => Date.parse(g.at || "") > sinceMs);
+  const recentHumanMessages = allHumanMessages.filter((g) => Date.parse(g.at || "") > sinceMs);
 
-  // --- React to human chat (fast reply: 2–4s) ---
-  const latestHumanChat = humanGuesses
-    .filter((g) => !g.correct && looksLikeChatNotGuess(g.guess))
-    .sort((a, b) => Date.parse(b.at) - Date.parse(a.at))[0];
+  // Pick the latest human message to react to
+  const latestHuman = recentHumanMessages.sort((a, b) => Date.parse(b.at) - Date.parse(a.at))[0];
+  if (!latestHuman) return false;
 
-  if (latestHumanChat) {
-    const chatDelay = 2000 + Math.floor(Math.random() * 2000);
-    if (now - Date.parse(latestHumanChat.at) < chatDelay) return false;
-    const reaction = await generateBotReaction({ humanMessage: latestHumanChat.guess });
-    if (!Array.isArray(room.roomChatMessages)) room.roomChatMessages = [];
-    room.roomChatMessages = [
-      ...room.roomChatMessages,
-      { playerId: room.botPlayerId, name: bot.name, text: reaction, at: new Date(now).toISOString() },
-    ].slice(-20);
-    room.botLastActionAt = new Date(now).toISOString();
-    return true;
-  }
+  // Reply after 2–4 seconds
+  const chatDelay = 2000 + Math.floor(Math.random() * 2000);
+  if (now - Date.parse(latestHuman.at) < chatDelay) return false;
 
-  // --- React to human single-word location guess with a bot guess (slower: 6–12s, ~60% chance) ---
-  const latestHumanGuess = humanGuesses
-    .filter((g) => {
-      if (g.correct || looksLikeChatNotGuess(g.guess)) return false;
-      return g.guess.trim().split(/\s+/).length === 1;
-    })
-    .sort((a, b) => Date.parse(b.at) - Date.parse(a.at))[0];
-
-  if (latestHumanGuess && Math.random() < 0.6) {
-    const guessDelay = 6000 + Math.floor(Math.random() * 6000);
-    if (now - Date.parse(latestHumanGuess.at) < guessDelay) return false;
-    const guessText = await generateBotWrongGuess({ zoomStepIndex });
-    if (guessText) {
-      const botGuesses = Array.isArray(room.currentRoundGuesses?.[room.botPlayerId])
-        ? room.currentRoundGuesses[room.botPlayerId]
-        : [];
-      room.currentRoundGuesses = {
-        ...room.currentRoundGuesses,
-        [room.botPlayerId]: trimGuessHistory([
-          ...botGuesses,
-          { guess: guessText, correct: false, at: new Date(now).toISOString() },
-        ]),
-      };
-    }
-    room.botLastActionAt = new Date(now).toISOString();
-    return true;
-  }
-
-  return false;
+  const reaction = await generateBotReaction({ humanMessage: latestHuman.guess });
+  if (!Array.isArray(room.roomChatMessages)) room.roomChatMessages = [];
+  room.roomChatMessages = [
+    ...room.roomChatMessages,
+    { playerId: room.botPlayerId, name: bot.name, text: reaction, at: new Date(now).toISOString() },
+  ].slice(-20);
+  room.botLastActionAt = new Date(now).toISOString();
+  return true;
 }
 
 async function createRoom(origin, players, options = {}) {

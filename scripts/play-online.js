@@ -179,8 +179,7 @@ function detectAndPlaySounds(room, snapshot) {
   }
   state.soundLastGuessCount = guessCount;
 
-  const isFinalCountdown = snapshot.timerContext === "Round ends in";
-  if (isFinalCountdown && timerSeconds !== null && timerSeconds !== state.soundLastTimerSeconds) {
+  if (timerSeconds !== null && timerSeconds <= 5 && timerSeconds !== state.soundLastTimerSeconds) {
     playSound("tick");
   }
   state.soundLastTimerSeconds = timerSeconds;
@@ -865,6 +864,7 @@ function renderWaitingRoom(room) {
   );
 
   renderRoomRoster(room?.players || [], room?.hostId || "");
+  if (room) renderRoom(room);
   startRoomTicker();
 }
 
@@ -1101,7 +1101,7 @@ function deriveRoundSnapshot(room) {
   const endsInMs = Math.max(0, roundDurationMs - elapsed);
 
   return {
-    timerCount: nextZoomInMs > 0 ? Math.ceil(nextZoomInMs / 1000) : Math.ceil(endsInMs / 1000),
+    timerCount: Math.ceil(endsInMs / 1000),
     timerContext: nextZoomInMs > 0 ? "Next zoom in" : "Round ends in",
     statusText: "First correct guess wins the round.",
     zoomScale: zoomLevels[zoomIndex],
