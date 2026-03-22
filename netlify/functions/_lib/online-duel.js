@@ -618,9 +618,8 @@ export async function submitOnlineDuelGuess({ origin, playerId, token, guess }) 
   };
 
   if (correct) {
-    // Round ends only when every real (non-bot) player has guessed correctly
-    const realPlayers = room.players.filter((p) => p.id !== room.botPlayerId);
-    const allGuessedCorrectly = realPlayers.every((p) => {
+    // Round ends when ALL players (including bot) have guessed correctly
+    const allGuessedCorrectly = room.players.every((p) => {
       const guesses = room.currentRoundGuesses[p.id] || [];
       return guesses.some((g) => g.correct);
     });
@@ -1064,35 +1063,60 @@ async function syncBotActions(room, now) {
     .filter(([pid]) => pid !== room.botPlayerId)
     .flatMap(([, entries]) => (Array.isArray(entries) ? entries : []));
 
-  // Check if bot should make a guess (every 15–25s after opening, ~40% chance it guesses, else chats)
-  const botGuessCooldownMs = 15000 + Math.floor(Math.random() * 10000);
-  const timeSinceLastAction = Number.isFinite(lastActionAtMs) ? now - lastActionAtMs : Infinity;
   const botGuesses = Array.isArray(room.currentRoundGuesses?.[room.botPlayerId])
     ? room.currentRoundGuesses[room.botPlayerId]
     : [];
   const botAlreadyGuessedCorrectly = botGuesses.some((g) => g.correct);
 
-  if (timeSinceLastAction >= botGuessCooldownMs && !botAlreadyGuessedCorrectly) {
-    // 35% chance the bot guesses the correct answer (only from zoom step 2 onwards)
-    const guessCorrect = zoomStepIndex >= 2 && Math.random() < 0.35;
-    let guessText;
+  if (!botAlreadyGuessedCorrectly) {
+    const timeSinceLastAction = Number.isFinite(lastActionAtMs) ? now - lastActionAtMs : Infinity;
+    const botGuessCooldownMs = 14000 + Math.floor(Math.random() * 8000);
 
-    if (guessCorrect) {
-      guessText = currentRound.answer;
-    } else {
-      guessText = await generateBotWrongGuess({ zoomStepIndex, answer: currentRound.answer });
+    // Find if any real player has already guessed correctly and when
+    const humanCorrectEntry = Object.entries(room.currentRoundGuesses || {})
+      .filter(([pid]) => pid !== room.botPlayerId)
+      .flatMap(([, entries]) => (Array.isArray(entries) ? entries : []))
+      .filter((e) => e.correct)
+      .sort((a, b) => Date.parse(a.at) - Date.parse(b.at))[0];
+    const humanCorrectAtMs = humanCorrectEntry ? Date.parse(humanCorrectEntry.at) : null;
+    const humanHasGuessedCorrectly = humanCorrectAtMs !== null;
+    const timeSinceHumanCorrect = humanHasGuessedCorrectly ? now - humanCorrectAtMs : 0;
+
+    if (timeSinceLastAction >= botGuessCooldownMs) {
+      // After human gets it right: make wrong guesses until 10s have passed, then guess correctly
+      const shouldGuessCorrect = humanHasGuessedCorrectly && timeSinceHumanCorrect >= 10000;
+      let guessText;
+
+      if (shouldGuessCorrect) {
+        guessText = currentRound.answer;
+      } else {
+        guessText = await generateBotWrongGuess({ zoomStepIndex, answer: currentRound.answer });
+      }
+
+      const normalizedGuessText = normalizeGuessDisplay(guessText);
+      const guessCorrect = shouldGuessCorrect;
+      room.currentRoundGuesses = {
+        ...room.currentRoundGuesses,
+        [room.botPlayerId]: trimGuessHistory([
+          ...botGuesses,
+          { guess: normalizedGuessText, correct: guessCorrect, points: 0, at: new Date(now).toISOString() },
+        ]),
+      };
+
+      if (guessCorrect) {
+        // Check if all players have now guessed correctly
+        const allGuessedCorrectly = room.players.every((p) => {
+          const guesses = room.currentRoundGuesses[p.id] || [];
+          return guesses.some((g) => g.correct);
+        });
+        if (allGuessedCorrectly) {
+          resolveCurrentRound(room, { resolvedAt: now, reason: "guess" });
+        }
+      }
+
+      room.botLastActionAt = new Date(now).toISOString();
+      return true;
     }
-
-    const normalizedGuessText = normalizeGuessDisplay(guessText);
-    room.currentRoundGuesses = {
-      ...room.currentRoundGuesses,
-      [room.botPlayerId]: trimGuessHistory([
-        ...botGuesses,
-        { guess: normalizedGuessText, correct: guessCorrect, points: 0, at: new Date(now).toISOString() },
-      ]),
-    };
-    room.botLastActionAt = new Date(now).toISOString();
-    return true;
   }
 
   // React to human messages if there are 2+ and human said something since last bot action
