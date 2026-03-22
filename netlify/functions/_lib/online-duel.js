@@ -1064,10 +1064,40 @@ async function syncBotActions(room, now) {
     .filter(([pid]) => pid !== room.botPlayerId)
     .flatMap(([, entries]) => (Array.isArray(entries) ? entries : []));
 
-  // Bot only engages after human has sent at least 2 messages
+  // Check if bot should make a guess (every 15–25s after opening, ~40% chance it guesses, else chats)
+  const botGuessCooldownMs = 15000 + Math.floor(Math.random() * 10000);
+  const timeSinceLastAction = Number.isFinite(lastActionAtMs) ? now - lastActionAtMs : Infinity;
+  const botGuesses = Array.isArray(room.currentRoundGuesses?.[room.botPlayerId])
+    ? room.currentRoundGuesses[room.botPlayerId]
+    : [];
+  const botAlreadyGuessedCorrectly = botGuesses.some((g) => g.correct);
+
+  if (timeSinceLastAction >= botGuessCooldownMs && !botAlreadyGuessedCorrectly) {
+    // 35% chance the bot guesses the correct answer (only from zoom step 2 onwards)
+    const guessCorrect = zoomStepIndex >= 2 && Math.random() < 0.35;
+    let guessText;
+
+    if (guessCorrect) {
+      guessText = currentRound.answer;
+    } else {
+      guessText = await generateBotWrongGuess({ zoomStepIndex });
+    }
+
+    const normalizedGuessText = normalizeGuessDisplay(guessText);
+    room.currentRoundGuesses = {
+      ...room.currentRoundGuesses,
+      [room.botPlayerId]: trimGuessHistory([
+        ...botGuesses,
+        { guess: normalizedGuessText, correct: guessCorrect, points: 0, at: new Date(now).toISOString() },
+      ]),
+    };
+    room.botLastActionAt = new Date(now).toISOString();
+    return true;
+  }
+
+  // React to human messages if there are 2+ and human said something since last bot action
   if (allHumanMessages.length < 2) return false;
 
-  // Only act if human has said something since bot last acted
   const lastHumanActivityMs = Math.max(
     ...allHumanMessages.map((g) => Date.parse(g.at || "") || 0),
     ...(room.roomChatMessages || [])
@@ -1080,11 +1110,8 @@ async function syncBotActions(room, now) {
     return false;
   }
 
-  // Collect unresponded human messages since last bot action
   const sinceMs = Number.isFinite(lastActionAtMs) ? lastActionAtMs : 0;
   const recentHumanMessages = allHumanMessages.filter((g) => Date.parse(g.at || "") > sinceMs);
-
-  // Pick the latest human message to react to
   const latestHuman = recentHumanMessages.sort((a, b) => Date.parse(b.at) - Date.parse(a.at))[0];
   if (!latestHuman) return false;
 
