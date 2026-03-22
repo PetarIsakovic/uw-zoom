@@ -491,12 +491,12 @@
   gap: 0.5rem;
 }
 
-.play-online-player-card[data-you="true"] {
-  background: rgba(242, 180, 0, 0.14);
+.play-online-player-card:nth-child(odd) {
+  background: #f5f5f5;
 }
 
-.play-online-player-card[data-leading="true"] {
-  background: rgba(108, 198, 71, 0.18);
+.play-online-player-card:nth-child(even) {
+  background: #ffffff;
 }
 
 .play-online-player-card:last-child {
