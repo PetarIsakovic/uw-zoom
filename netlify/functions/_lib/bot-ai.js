@@ -40,45 +40,67 @@ async function callNova(system, userMessage, maxTokens = 30) {
   return raw ? raw.replace(/^["'"']+|["'"']+$/gu, "").trim() : null;
 }
 
-const BOT_PERSONA = `You are a Gen Z UW student in a photo guessing game chat. You're funny, chaotic, and talk like you're texting a friend. Lowercase only. No emojis. Short bursts. You use slang naturally — "fr", "ngl", "lowkey", "no cap", "bro", "bestie", "it's giving", "not the", "rent free", "iykyk", "slay", "mid", "based", "cope", "ratio". Don't try too hard. Be casual and a little unhinged.`;
+const BOT_PERSONA = `You are a Gen Z UW student texting in a photo guessing game chat. Rules:
+- Lowercase only, no emojis, no punctuation except maybe "..."
+- Ultra short — 1 to 5 words MAX, shorter is better
+- Tons of typos: swap letters, skip letters, double letters randomly (e.g. "waht", "omgg", "idk", "rly", "thats", "wdym", "u", "ur", "bc", "cuz", "ngl", "imo")
+- Heavy slang: lol, lmao, lmfao, omg, omgg, ngl, fr, fr fr, ong, no cap, lowkey, highkey, idk, idc, imo, tbh, nvm, rn, brb, gg, ggs, oop, slay, based, mid, sus, ratio, cope, rent free, iykyk, ifykyk, jk, jkjk, deadass, bussin, snatched, ate, understood the assignment, it's giving, not the, bro, bestie, girlie, bffr, istg, icl, in my __ era, this ain't it, pls, pov
+- Never full sentences. Fragment everything.`;
 
 const STATIC_CHATS = [
-  "bro i got this",
-  "ngl this one's hard",
-  "giving me nothing rn",
-  "no cap i have no idea",
+  "idk lol",
+  "omgg",
+  "no cap idk",
+  "bro wut",
+  "fr fr no idea",
+  "lmao help",
+  "ngl stumped",
+  "waht",
+  "iykyk... i dont",
   "this is so mid",
-  "lowkey stumped",
-  "fr who took this photo",
-  "bro im cooked",
-  "not me struggling on this",
-  "iykyk... i don't",
-  "this ain't it chief",
-  "okay okay i see you",
-  "ratio incoming",
-  "i'm so cooked rn",
-  "bro the zoom is not helping",
+  "not me losing",
+  "gg already",
+  "lmfao ok",
+  "bro cooked",
+  "nvm im done",
+  "u got this jk",
+  "pls help",
+  "omg wut is this",
+  "lowkey lost",
+  "rn idc lol",
+  "ratio incoming jk",
+  "ong no clue",
+  "deadass stumped",
+  "idc anymore lol",
+  "pov: losing",
 ];
 
 const STATIC_REACTIONS = [
-  "bro what",
-  "lmao no",
-  "not even close",
-  "are you serious rn",
-  "nah",
-  "how",
-  "that was a reach",
-  "skill issue",
-  "my grandma could do better",
-  "that was rough",
-  "bro guessed that",
-  "no chance",
-  "respectfully, no",
-  "that's wild",
-  "u good?",
-  "nah fr",
-  "cope",
+  "lol wut",
+  "nah lmao",
+  "omgg",
+  "bro rly",
+  "fr??",
+  "lmfao ok",
+  "ngl thats funny",
+  "ong same",
+  "no cap tho",
+  "bffr",
+  "jkjk maybe",
+  "idk lol",
+  "deadass?",
   "ratio",
+  "cope",
+  "nvm ur right",
+  "omg stopppp",
+  "lmaoo",
+  "fr fr",
+  "waht lol",
+  "ok ok",
+  "istg",
+  "bussin ngl",
+  "gg",
+  "mid tbh",
 ];
 
 /**
@@ -91,23 +113,23 @@ export async function generateBotChat({ roundNumber, zoomStepIndex, prevChats = 
   }
 
   const context = zoomStepIndex === 0
-    ? "the photo is super zoomed in and you can barely see anything"
+    ? "super zoomed in, can barely see anything"
     : zoomStepIndex === 1
-    ? "the photo has zoomed out a bit but it's still pretty vague"
-    : "the photo is zooming out more and you're starting to get a sense of it";
+    ? "zoomed out a bit but still vague"
+    : "zooming out more, starting to see it";
 
-  const prev = prevChats.length ? `You already said: ${prevChats.slice(-3).join(", ")}. Say something different.` : "";
+  const prev = prevChats.length ? `Already said: ${prevChats.slice(-3).join(", ")}. Say something different.` : "";
 
-  const userMessage = `You're in round ${roundNumber} of a UW campus photo guessing game. ${context}.
+  const userMessage = `Round ${roundNumber}, UW campus photo game. Context: ${context}.
 
-Send a short chat message — maybe talk trash, express confusion, hype yourself up, or just vibe. Keep it natural, funny, Gen Z. 1-8 words max.
+Send ONE ultra-short chat message. 1-5 words MAX. Use typos and slang. Could be confusion, trash talk, or just vibing.
 
 ${prev}
 Just the message. Nothing else.`;
 
   try {
-    const text = await callNova(BOT_PERSONA, userMessage, 30);
-    if (!text || text.length > 120) throw new Error("bad");
+    const text = await callNova(BOT_PERSONA, userMessage, 20);
+    if (!text || text.length > 80) throw new Error("bad");
     return text;
   } catch {
     return STATIC_CHATS[Math.floor(Math.random() * STATIC_CHATS.length)];
@@ -165,15 +187,15 @@ export async function generateBotReaction({ humanMessage }) {
     return STATIC_REACTIONS[Math.floor(Math.random() * STATIC_REACTIONS.length)];
   }
 
-  const userMessage = `Someone in the game chat said: "${humanMessage}"
+  const userMessage = `Someone said in game chat: "${humanMessage}"
 
-Reply in 2-6 words. Be real and funny — react like a friend would in a group chat. Could be a roast, agreement, or just chaos.
+Reply in 1-4 words MAX. Ultra short, typos, slang. React like a friend texting back instantly.
 
 Just your reply. Nothing else.`;
 
   try {
-    const text = await callNova(BOT_PERSONA, userMessage, 25);
-    if (!text || text.length > 100) throw new Error("bad");
+    const text = await callNova(BOT_PERSONA, userMessage, 20);
+    if (!text || text.length > 80) throw new Error("bad");
     return text;
   } catch {
     return STATIC_REACTIONS[Math.floor(Math.random() * STATIC_REACTIONS.length)];
