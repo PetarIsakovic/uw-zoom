@@ -1040,6 +1040,25 @@ async function syncBotActions(room, now) {
 
   const lastActionAtMs = Date.parse(room.botLastActionAt || "");
 
+  // Send one opening slang word 2–4s after round starts, before any human interaction
+  if (!Number.isFinite(lastActionAtMs)) {
+    const openingDelay = 2000 + Math.floor(Math.random() * 2000);
+    if (elapsedMs >= openingDelay) {
+      const openers = [
+        "gg", "lol", "omg", "lmao", "fr", "ngl", "omgg", "ong", "slay",
+        "ggs", "pls", "waht", "ok", "rly", "bro", "lmfao", "deadass", "istg",
+      ];
+      const opener = openers[Math.floor(Math.random() * openers.length)];
+      if (!Array.isArray(room.roomChatMessages)) room.roomChatMessages = [];
+      room.roomChatMessages = [
+        ...room.roomChatMessages,
+        { playerId: room.botPlayerId, name: bot.name, text: opener, at: new Date(now).toISOString() },
+      ].slice(-20);
+      room.botLastActionAt = new Date(now).toISOString();
+      return true;
+    }
+  }
+
   // Count all human messages this round (guesses + chats)
   const allHumanMessages = Object.entries(room.currentRoundGuesses || {})
     .filter(([pid]) => pid !== room.botPlayerId)
