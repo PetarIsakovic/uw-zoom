@@ -578,7 +578,8 @@
 }
 
 .play-online-in-game .site-header {
-  display: none;
+  padding: 0.4rem 0.75rem;
+  flex-shrink: 0;
 }
 
 /* ---- In-game: lock everything to the viewport, no scrolling ---- */
@@ -599,7 +600,7 @@ body.play-online-in-game .play-online-layout {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  padding: 0.3rem 0.5rem 0.4rem;
+  padding: 0.3rem 0.5rem 0.75rem;
   width: min(1180px, 100%);
   margin: 0 auto;
   box-sizing: border-box;
