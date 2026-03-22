@@ -578,8 +578,16 @@
 }
 
 .play-online-in-game .site-header {
-  padding: 0.4rem 0.75rem;
+  padding: 0.35rem 0.75rem;
   flex-shrink: 0;
+}
+
+.play-online-wordmark {
+  font-size: clamp(1.6rem, 3.5vw, 2.4rem);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1;
+  text-decoration: none;
 }
 
 /* ---- In-game: lock everything to the viewport, no scrolling ---- */
