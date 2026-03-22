@@ -151,8 +151,11 @@ function detectAndPlaySounds(room, snapshot) {
   const resolvedAt = round?.resolvedAt ?? null;
   const playerCount = room.playerCount ?? 0;
   const allRoomGuesses = getVisibleRoomGuesses(room);
+  const now = Date.now();
   const guessCount = allRoomGuesses.filter((g) => !g.isChat).length;
-  const chatCount = allRoomGuesses.filter((g) => g.isChat && g.playerId !== room.you?.id).length;
+  const chatCount = allRoomGuesses.filter(
+    (g) => g.isChat && g.playerId !== room.you?.id && now - Date.parse(g.at || "") >= BOT_CHAT_DELAY_MS,
+  ).length;
   const timerSeconds = snapshot.timerCount ?? null;
 
   if (!state.soundInitialized) {
