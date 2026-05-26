@@ -22,9 +22,9 @@ const PRIVATE_ROOM_MAX_PLAYERS = 8;
 const PUBLIC_LOBBY_COUNTDOWN_MS = 0;
 const QUEUE_STALE_MS = 30 * 60 * 1000;
 const QUEUE_HEARTBEAT_MS = 30 * 1000;
-const ROOM_PLAYER_HEARTBEAT_MS = 10 * 1000;
-const WAITING_ROOM_PLAYER_STALE_MS = 20 * 1000;
-const LIVE_ROOM_PLAYER_STALE_MS = 30 * 1000;
+const ROOM_PLAYER_HEARTBEAT_MS = 5 * 1000;
+const WAITING_ROOM_PLAYER_STALE_MS = 30 * 1000;
+const LIVE_ROOM_PLAYER_STALE_MS = 60 * 1000;
 const ROUND_COUNT = 3;
 const ROUND_COUNTDOWN_MS = 0;
 const ROUND_INTERMISSION_MS = 3500;
@@ -729,7 +729,22 @@ async function tryLoadAssignedRoom(origin, session) {
   }
 
   const syncedRoom = await syncRoom(room);
-  const playerStillInRoom = syncedRoom.players.some((player) => player.id === session.playerId);
+  let playerStillInRoom = syncedRoom.players.some((player) => player.id === session.playerId);
+
+  if (!playerStillInRoom && syncedRoom.status !== ROOM_STATUS_FINISHED &&
+      syncedRoom.players.length < (syncedRoom.maxPlayers || PUBLIC_ROOM_MAX_PLAYERS)) {
+    syncedRoom.players.push({
+      id: session.playerId,
+      token: session.token,
+      name: normalizeName(assignment.name || session.name),
+      avatar: normalizeAvatarSelection(assignment.avatar || session.avatar),
+      joinedAt: assignment.assignedAt || new Date().toISOString(),
+      lastSeenAt: new Date().toISOString(),
+    });
+    syncedRoom.scores = { ...syncedRoom.scores, [session.playerId]: 0 };
+    syncedRoom.updatedAt = new Date().toISOString();
+    playerStillInRoom = true;
+  }
 
   if (!playerStillInRoom) {
     await deleteObject(playerAssignmentKey(session.playerId)).catch(() => {});
@@ -763,7 +778,22 @@ async function loadRoomForPlayer(origin, session) {
   }
 
   const syncedRoom = await syncRoom(room);
-  const playerStillInRoom = syncedRoom.players.some((player) => player.id === session.playerId);
+  let playerStillInRoom = syncedRoom.players.some((player) => player.id === session.playerId);
+
+  if (!playerStillInRoom && syncedRoom.status !== ROOM_STATUS_FINISHED &&
+      syncedRoom.players.length < (syncedRoom.maxPlayers || PUBLIC_ROOM_MAX_PLAYERS)) {
+    syncedRoom.players.push({
+      id: session.playerId,
+      token: session.token,
+      name: normalizeName(assignment.name || session.name),
+      avatar: normalizeAvatarSelection(assignment.avatar || session.avatar),
+      joinedAt: assignment.assignedAt || new Date().toISOString(),
+      lastSeenAt: new Date().toISOString(),
+    });
+    syncedRoom.scores = { ...syncedRoom.scores, [session.playerId]: 0 };
+    syncedRoom.updatedAt = new Date().toISOString();
+    playerStillInRoom = true;
+  }
 
   if (!playerStillInRoom) {
     await deleteObject(playerAssignmentKey(session.playerId)).catch(() => {});

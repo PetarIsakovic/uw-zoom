@@ -174,9 +174,12 @@
 }
 
 .play-online-room-link {
-  font-size: 0.92rem;
+  font-size: 0.85rem;
   background: var(--paper-strong);
   border: 1.5px solid var(--line);
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
 }
 
 .play-online-room-roster {
