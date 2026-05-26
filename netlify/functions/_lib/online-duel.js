@@ -1003,6 +1003,17 @@ async function syncRoom(room) {
 
   if (await pruneStaleRoomPlayers(nextRoom, now)) {
     changed = true;
+
+    if (nextRoom.status === ROOM_STATUS_LIVE && !nextRoom.currentRoundResolvedAt &&
+        nextRoom.players.length > 0) {
+      const allCorrect = nextRoom.players.every((p) => {
+        const guesses = nextRoom.currentRoundGuesses[p.id] || [];
+        return guesses.some((g) => g.correct);
+      });
+      if (allCorrect) {
+        resolveCurrentRound(nextRoom, { resolvedAt: now, reason: "guess" });
+      }
+    }
   }
 
   while (true) {
@@ -1604,6 +1615,16 @@ async function removePlayerFromPrivateRoom(room, playerId) {
     return room;
   }
 
+  if (room.status === ROOM_STATUS_LIVE && !room.currentRoundResolvedAt && room.players.length > 0) {
+    const allCorrect = room.players.every((p) => {
+      const guesses = room.currentRoundGuesses[p.id] || [];
+      return guesses.some((g) => g.correct);
+    });
+    if (allCorrect) {
+      resolveCurrentRound(room, { resolvedAt: Date.now(), reason: "guess" });
+    }
+  }
+
   room.updatedAt = new Date().toISOString();
   return room;
 }
@@ -1640,6 +1661,16 @@ async function removePlayerFromPublicLiveRoom(room, playerId) {
 
   if (room.hostId === playerId) {
     room.hostId = room.players[0]?.id || "";
+  }
+
+  if (room.status === ROOM_STATUS_LIVE && !room.currentRoundResolvedAt && room.players.length > 0) {
+    const allCorrect = room.players.every((p) => {
+      const guesses = room.currentRoundGuesses[p.id] || [];
+      return guesses.some((g) => g.correct);
+    });
+    if (allCorrect) {
+      resolveCurrentRound(room, { resolvedAt: Date.now(), reason: "guess" });
+    }
   }
 
   room.updatedAt = new Date().toISOString();
