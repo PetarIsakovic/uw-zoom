@@ -424,8 +424,7 @@ function hydrateSessionFromUrl() {
     playerNameInput.value = normalizeName(handoff?.name || params.get("name") || "");
   }
 
-  const roomId = params.get(ROOM_QUERY_KEY) || "";
-  window.history.replaceState({}, "", roomId ? `/?room=${roomId}` : "/");
+  window.history.replaceState({}, "", "/");
 }
 
 function syncSessionUrl() {
@@ -437,11 +436,7 @@ function syncSessionUrl() {
     url.searchParams.delete(key);
   }
 
-  if (state.requestedRoomId) {
-    url.searchParams.set(ROOM_QUERY_KEY, state.requestedRoomId);
-  } else {
-    url.searchParams.delete(ROOM_QUERY_KEY);
-  }
+  url.searchParams.delete(ROOM_QUERY_KEY);
 
   try {
     if (state.playerId && state.token) {
@@ -453,9 +448,7 @@ function syncSessionUrl() {
     }
   } catch {}
 
-  // Keep the URL clean — always show "/" (or "/?room=..." for shareable private rooms)
-  const roomParam = url.searchParams.get(ROOM_QUERY_KEY);
-  window.history.replaceState({}, "", roomParam ? `/?room=${roomParam}` : "/");
+  window.history.replaceState({}, "", "/");
 }
 
 async function loadWordBank() {
