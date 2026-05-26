@@ -1332,17 +1332,25 @@ function stopQueueTitleAnimation() {
 
 function updateGuessFormAvailability(snapshot = deriveRoundSnapshot(state.latestPayload?.room || {})) {
   const isWaiting = state.latestPayload?.status === "waiting";
-  const canGuess = Boolean(snapshot?.canGuess && state.latestPayload?.status === "live");
-  const canChat = isWaiting && document.body.classList.contains("play-online-in-lobby");
+  const isLive = state.latestPayload?.status === "live";
+  const canGuess = Boolean(snapshot?.canGuess && isLive);
+  const canChat = (isWaiting && document.body.classList.contains("play-online-in-lobby")) ||
+    (isLive && !canGuess);
   guessInput.disabled = false;
   guessButton.disabled = !canGuess && !canChat;
   guessInput.dataset.canGuess = (canGuess || canChat) ? "true" : "false";
 
   if (!canGuess) {
     clearInlineSuggestion();
+    if (canChat && guessInput) {
+      guessInput.placeholder = "Type a message...";
+    }
     return;
   }
 
+  if (guessInput) {
+    guessInput.placeholder = "WatCard, Dana Porter, goose...";
+  }
   updateAutocomplete();
 }
 

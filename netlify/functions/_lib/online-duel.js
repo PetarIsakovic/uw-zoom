@@ -520,9 +520,21 @@ export async function submitOnlineDuelGuess({ origin, playerId, token, guess }) 
     });
   }
 
-  // Don't let a player guess again after already getting it right
   if (playerGuesses.some((g) => g.correct)) {
-    throw new HttpError(409, "You already guessed correctly this round.");
+    const playerName = room.players.find((p) => p.id === session.playerId)?.name || "Player";
+    if (!Array.isArray(room.roomChatMessages)) room.roomChatMessages = [];
+    room.roomChatMessages = [
+      ...room.roomChatMessages,
+      { playerId: session.playerId, name: playerName, text: normalizeGuess(guess), at: new Date(now).toISOString() },
+    ].slice(-50);
+    const syncedRoom = await syncRoom(room);
+    await persistRoom(syncedRoom);
+    return {
+      status: syncedRoom.status,
+      playerId: session.playerId,
+      token: session.token,
+      room: buildPublicRoomState(syncedRoom, session.playerId, origin),
+    };
   }
 
   const canonicalGuess = normalizeGuessDisplay(guess);
