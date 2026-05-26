@@ -29,7 +29,7 @@ const ROUND_COUNT = 3;
 const ROUND_COUNTDOWN_MS = 0;
 const ROUND_INTERMISSION_MS = 3500;
 // Each zoom level lasts a different amount of time (most → least zoomed in)
-const ZOOM_STEP_DURATIONS_MS = [24000, 18000, 12000, 6000];
+const ZOOM_STEP_DURATIONS_MS = [15000, 15000, 15000, 15000];
 const ZOOM_LEVELS = [4.6, 3.2, 2.2, 1.0];
 const ROUND_DURATION_MS = ZOOM_STEP_DURATIONS_MS.reduce((s, d) => s + d, 0);
 const RECENT_GUESSES_LIMIT = 6;
