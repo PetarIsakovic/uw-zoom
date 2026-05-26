@@ -369,12 +369,12 @@ async function bootstrap() {
 
   // When auto-joining (e.g. user clicked Play on landing), skip refreshState and go straight
   // to joinMatch — the join API will reuse or replace the existing session server-side.
-  if (hasActiveSession() && !state.shouldAutoJoin) {
+  if (hasActiveSession() && !state.shouldAutoJoin && !state.requestedRoomId) {
     await refreshState();
     return;
   }
 
-  if (state.shouldAutoJoin) {
+  if (state.shouldAutoJoin || state.requestedRoomId) {
     state.shouldAutoJoin = false;
     if (state.shouldAutoCreatePrivateRoom) {
       renderCreatingPrivateRoom();
