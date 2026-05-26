@@ -833,7 +833,7 @@ function renderCreatingPrivateRoom() {
   populateRoomLink("Generating invite link...");
   roomRoster?.replaceChildren();
   if (roomRoster) roomRoster.hidden = false;
-  scoreboard.hidden = true;
+  scoreboard.hidden = false;
   clearQueuePlayers();
   if (guessLabel) guessLabel.textContent = "Say something";
   if (guessInput) guessInput.placeholder = "Chat with your friends...";
@@ -864,7 +864,7 @@ function renderWaitingRoom(room) {
   document.body.classList.add("play-online-in-game");
   document.body.classList.add("play-online-in-lobby");
   if (roomRoster) roomRoster.hidden = false;
-  scoreboard.hidden = true;
+  scoreboard.hidden = false;
   state.waitingForFirstImageReveal = false;
   state.hasRevealedLiveMatch = false;
   clearQueuePlayers();
