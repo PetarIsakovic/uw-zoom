@@ -228,14 +228,17 @@ export async function joinOnlineDuel({ origin, name, playerId, token, avatar, ro
 
   if (
     existing.status === ROOM_STATUS_LIVE ||
-    existing.status === ROOM_STATUS_WAITING ||
-    existing.status === "queued"
+    existing.status === ROOM_STATUS_WAITING
   ) {
     return {
       ...existing,
       playerId: session.playerId,
       token: session.token,
     };
+  }
+
+  if (existing.status === "queued") {
+    await deleteObject(queueEntryKey(session.playerId)).catch(() => {});
   }
 
   if (existing.status === ROOM_STATUS_FINISHED) {
@@ -255,45 +258,23 @@ export async function joinOnlineDuel({ origin, name, playerId, token, avatar, ro
     };
   }
 
-  const queueEntries = await loadActiveQueueEntries();
-  const opponent = queueEntries.find((entry) => entry.playerId !== session.playerId);
-
-  if (opponent) {
-    const room = await createRoom(origin, [opponent, session], {
-      type: ROOM_TYPE_PUBLIC,
-      status: ROOM_STATUS_LIVE,
-      maxPlayers: PUBLIC_ROOM_MAX_PLAYERS,
-      hostId: opponent.playerId,
-    });
-
-    await Promise.all([
-      putJson(roomKey(room.id), room),
-      putJson(playerAssignmentKey(opponent.playerId), buildPlayerAssignment(room, opponent)),
-      putJson(playerAssignmentKey(session.playerId), buildPlayerAssignment(room, session)),
-      deleteObject(queueEntryKey(opponent.playerId)).catch(() => {}),
-      deleteObject(queueEntryKey(session.playerId)).catch(() => {}),
-    ]);
-
-    return {
-      status: room.status,
-      playerId: session.playerId,
-      token: session.token,
-      room: buildPublicRoomState(room, session.playerId, origin),
-    };
-  }
-
-  await putJson(queueEntryKey(session.playerId), {
-    playerId: session.playerId,
-    token: session.token,
-    name: normalizeName(session.name),
-    avatar: normalizeAvatarSelection(session.avatar),
-    joinedAt: new Date().toISOString(),
+  const room = await createRoom(origin, [session], {
+    type: ROOM_TYPE_PUBLIC,
+    status: ROOM_STATUS_LIVE,
+    maxPlayers: PUBLIC_ROOM_MAX_PLAYERS,
+    hostId: session.playerId,
   });
+
+  await Promise.all([
+    putJson(roomKey(room.id), room),
+    putJson(playerAssignmentKey(session.playerId), buildPlayerAssignment(room, session)),
+  ]);
+
   return {
-    status: "queued",
+    status: room.status,
     playerId: session.playerId,
     token: session.token,
-    room: null,
+    room: buildPublicRoomState(room, session.playerId, origin),
   };
 }
 
@@ -699,40 +680,6 @@ async function getExistingPlayerState(origin, session) {
 
   if (roomState) {
     return roomState;
-  }
-
-  const queueEntry = await getJson(queueEntryKey(session.playerId));
-
-  if (queueEntry && queueEntry.token === session.token) {
-    if (isTimestampFresh(queueEntry.updatedAt || queueEntry.joinedAt, QUEUE_STALE_MS)) {
-      await refreshQueueHeartbeat(queueEntry, session);
-
-      const joinablePublicRoom = await findJoinablePublicRoom(origin, session.playerId);
-
-      if (joinablePublicRoom) {
-        const room = await joinPublicRoom(origin, joinablePublicRoom.id, {
-          playerId: session.playerId,
-          token: session.token,
-          name: normalizeName(queueEntry.name || session.name),
-          avatar: normalizeAvatarSelection(queueEntry.avatar || session.avatar),
-        });
-
-        await deleteObject(queueEntryKey(session.playerId)).catch(() => {});
-
-        return {
-          status: room.status,
-          room: buildPublicRoomState(room, session.playerId, origin),
-        };
-      }
-
-      return {
-        status: "queued",
-        queuedAt: queueEntry.joinedAt,
-        name: normalizeName(queueEntry.name),
-      };
-    }
-
-    await deleteObject(queueEntryKey(session.playerId)).catch(() => {});
   }
 
   return {
