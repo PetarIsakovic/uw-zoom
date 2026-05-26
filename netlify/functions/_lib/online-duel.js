@@ -315,8 +315,8 @@ export async function startPrivateOnlineDuelRoom({ origin, playerId, token }) {
     throw new HttpError(403, "Only the room host can start the game.");
   }
 
-  if (room.players.length < 2) {
-    throw new HttpError(409, "Private rooms need at least 2 players before the host can start.");
+  if (room.players.length < 1) {
+    throw new HttpError(409, "Room has no players.");
   }
 
   const now = Date.now();
@@ -1345,7 +1345,7 @@ function buildPublicRoomState(room, playerId, origin) {
       room.type === ROOM_TYPE_PRIVATE &&
       room.status === ROOM_STATUS_WAITING &&
       room.hostId === playerId &&
-      room.players.length >= 2,
+      room.players.length >= 1,
     shareUrl: room.type === ROOM_TYPE_PRIVATE ? buildPrivateRoomShareUrl(origin, room.id) : "",
     roundIndex: room.rounds.length ? Math.min(room.currentRoundIndex + 1, room.rounds.length) : 0,
     roundCount: room.rounds.length,

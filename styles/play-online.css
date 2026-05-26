@@ -878,9 +878,20 @@ body.play-online-in-game .play-online-clock-timer {
 .play-online-lobby-center {
   display: flex;
   flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
   height: 100%;
+  min-height: 14rem;
   border: 2px solid rgba(17, 17, 17, 0.12);
+  border-radius: var(--radius-md);
   background: #ffffff;
+}
+
+.play-online-lobby-center-copy {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.95rem;
 }
 
 .play-online-lobby-center-inner {
