@@ -263,7 +263,8 @@ async function loadNextRound(options = {}) {
 
   image.src = nextRound.imageUrl;
   image.alt = `Mystery image for ${nextRound.answer}`;
-  image.style.transformOrigin = `${nextRound.focusX || 50}% ${nextRound.focusY || 50}%`;
+  state.startFocusX = 15 + Math.floor(Math.random() * 70);
+  state.startFocusY = 15 + Math.floor(Math.random() * 70);
   updateZoom();
   state.roundLocked = false;
   input.disabled = false;
@@ -275,7 +276,15 @@ async function loadNextRound(options = {}) {
 
 function updateZoom() {
   const scale = ZOOM_LEVELS[Math.min(state.wrongGuesses, ZOOM_LEVELS.length - 1)];
+  const maxZoom = ZOOM_LEVELS[0];
+  const t = maxZoom <= 1 ? 1 : Math.max(0, Math.min(1, (maxZoom - scale) / (maxZoom - 1)));
+  const endX = state.current?.focusX || 50;
+  const endY = state.current?.focusY || 50;
+  const currentX = (state.startFocusX || endX) + (endX - (state.startFocusX || endX)) * t;
+  const currentY = (state.startFocusY || endY) + (endY - (state.startFocusY || endY)) * t;
+  image.style.transformOrigin = `${currentX}% ${currentY}%`;
   image.style.transform = `scale(${scale})`;
+  image.style.transition = "transform 0.6s ease-out, transform-origin 0.6s ease-out";
 }
 
 function revealImage(isGameOver) {
@@ -283,6 +292,9 @@ function revealImage(isGameOver) {
     state.wrongGuesses = MAX_WRONG_GUESSES;
   }
 
+  const endX = state.current?.focusX || 50;
+  const endY = state.current?.focusY || 50;
+  image.style.transformOrigin = `${endX}% ${endY}%`;
   image.style.transform = "scale(1)";
   input.disabled = true;
 }

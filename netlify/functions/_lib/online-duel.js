@@ -954,6 +954,8 @@ async function createRoom(origin, players, options = {}) {
     acceptedAnswers: image.acceptedAnswers || [],
     focusX: image.focusX || 50,
     focusY: image.focusY || 50,
+    startFocusX: 15 + Math.floor(Math.random() * 70),
+    startFocusY: 15 + Math.floor(Math.random() * 70),
   }));
 
   const now = Date.now();
@@ -1322,6 +1324,9 @@ function buildPublicRoomState(room, playerId, origin) {
           imageUrl: currentRound.imageUrl,
           focusX: currentRound.focusX || 50,
           focusY: currentRound.focusY || 50,
+          startFocusX: currentRound.startFocusX || currentRound.focusX || 50,
+          startFocusY: currentRound.startFocusY || currentRound.focusY || 50,
+          zoomStepIndex,
           startedAt: room.currentRoundStartedAt,
           zoomScale: room.currentRoundResolvedAt ? 1 : ZOOM_LEVELS[zoomStepIndex],
           zoomLevels: ZOOM_LEVELS,

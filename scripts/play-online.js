@@ -1176,8 +1176,18 @@ function updateImageStage(round, zoomScale, overlayText) {
     }
   }
 
-  gameImage.style.transformOrigin = `${round.focusX || 50}% ${round.focusY || 50}%`;
+  const zoomLevels = round.zoomLevels || [1];
+  const maxZoom = zoomLevels[0] || 1;
+  const t = maxZoom <= 1 ? 1 : Math.max(0, Math.min(1, (maxZoom - (zoomScale || 1)) / (maxZoom - 1)));
+  const startX = round.startFocusX ?? round.focusX ?? 50;
+  const startY = round.startFocusY ?? round.focusY ?? 50;
+  const endX = round.focusX ?? 50;
+  const endY = round.focusY ?? 50;
+  const currentX = startX + (endX - startX) * t;
+  const currentY = startY + (endY - startY) * t;
+  gameImage.style.transformOrigin = `${currentX}% ${currentY}%`;
   gameImage.style.transform = `scale(${zoomScale || 1})`;
+  gameImage.style.transition = "transform 1.5s ease-out, transform-origin 1.5s ease-out";
 
   if (overlayText) {
     showImageLoading(overlayText);
