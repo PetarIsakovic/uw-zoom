@@ -1953,7 +1953,9 @@ function removePendingRoomGuess(localId) {
 }
 
 function getVisibleRoomGuesses(room) {
-  const serverGuesses = Array.isArray(room?.currentRound?.roomGuesses) ? room.currentRound.roomGuesses : [];
+  const roundGuesses = Array.isArray(room?.currentRound?.roomGuesses) ? room.currentRound.roomGuesses : [];
+  const lobbyChat = Array.isArray(room?.lobbyChatMessages) ? room.lobbyChatMessages : [];
+  const serverGuesses = roundGuesses.length ? roundGuesses : lobbyChat;
   const pendingGuesses = state.pendingRoomGuesses.filter((entry) => {
     return entry.roomId === room?.id && entry.roundIndex === Number(room?.roundIndex || 0);
   });
