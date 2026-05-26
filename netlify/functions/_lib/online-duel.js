@@ -20,7 +20,7 @@ const PUBLIC_ROOM_MIN_PLAYERS = 2;
 const PUBLIC_ROOM_MAX_PLAYERS = 8;
 const PRIVATE_ROOM_MAX_PLAYERS = 8;
 const PUBLIC_LOBBY_COUNTDOWN_MS = 0;
-const QUEUE_STALE_MS = 2 * 60 * 1000;
+const QUEUE_STALE_MS = 30 * 60 * 1000;
 const QUEUE_HEARTBEAT_MS = 30 * 1000;
 const ROOM_PLAYER_HEARTBEAT_MS = 10 * 1000;
 const WAITING_ROOM_PLAYER_STALE_MS = 20 * 1000;
@@ -674,7 +674,7 @@ async function getExistingPlayerState(origin, session) {
   const queueEntry = await getJson(queueEntryKey(session.playerId));
 
   if (queueEntry && queueEntry.token === session.token) {
-    if (isTimestampFresh(queueEntry.updatedAt, QUEUE_STALE_MS)) {
+    if (isTimestampFresh(queueEntry.updatedAt || queueEntry.joinedAt, QUEUE_STALE_MS)) {
       await refreshQueueHeartbeat(queueEntry, session);
 
       const joinablePublicRoom = await findJoinablePublicRoom(origin, session.playerId);
