@@ -1068,6 +1068,10 @@ async function syncRoom(room) {
 
     if (nextRoom.currentRoundIndex >= nextRoom.rounds.length) {
       nextRoom.currentRoundIndex = 0;
+      for (const round of nextRoom.rounds) {
+        round.startFocusX = 15 + Math.floor(Math.random() * 70);
+        round.startFocusY = 15 + Math.floor(Math.random() * 70);
+      }
       nextRoom.updatedAt = new Date(now).toISOString();
       changed = true;
       continue;
@@ -1082,6 +1086,11 @@ async function syncRoom(room) {
       }
 
       nextRoom.currentRoundIndex += 1;
+      const nextRound = nextRoom.rounds[nextRoom.currentRoundIndex];
+      if (nextRound) {
+        nextRound.startFocusX = 15 + Math.floor(Math.random() * 70);
+        nextRound.startFocusY = 15 + Math.floor(Math.random() * 70);
+      }
       nextRoom.currentRoundStartedAt = new Date(now + ROUND_COUNTDOWN_MS).toISOString();
       nextRoom.currentRoundResolvedAt = "";
       nextRoom.currentRoundWinnerId = "";
@@ -1595,16 +1604,6 @@ async function removePlayerFromPrivateRoom(room, playerId) {
     return room;
   }
 
-  if (room.status === ROOM_STATUS_LIVE && room.players.length <= 1) {
-    room.status = ROOM_STATUS_FINISHED;
-    room.finishedAt = new Date().toISOString();
-    room.winnerId = room.players[0]?.id || "";
-    room.endedReason = "last-player-standing";
-    room.updatedAt = room.finishedAt;
-    await finalizeRoom(room);
-    return room;
-  }
-
   room.updatedAt = new Date().toISOString();
   return room;
 }
@@ -1641,16 +1640,6 @@ async function removePlayerFromPublicLiveRoom(room, playerId) {
 
   if (room.hostId === playerId) {
     room.hostId = room.players[0]?.id || "";
-  }
-
-  if (room.players.length <= 1) {
-    room.status = ROOM_STATUS_FINISHED;
-    room.finishedAt = new Date().toISOString();
-    room.winnerId = room.players[0]?.id || "";
-    room.endedReason = "last-player-standing";
-    room.updatedAt = room.finishedAt;
-    await finalizeRoom(room);
-    return room;
   }
 
   room.updatedAt = new Date().toISOString();

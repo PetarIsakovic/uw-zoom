@@ -1179,17 +1179,11 @@ function updateImageStage(round, zoomScale, overlayText) {
     }
   }
 
-  const roundKey = `${round.imageUrl}-${round.startedAt || ""}`;
-  if (state.currentPanKey !== roundKey) {
-    state.currentPanKey = roundKey;
-    state.currentPanStartX = 15 + Math.floor(Math.random() * 70);
-    state.currentPanStartY = 15 + Math.floor(Math.random() * 70);
-  }
   const zoomLevels = round.zoomLevels || [1];
   const maxZoom = zoomLevels[0] || 1;
   const t = maxZoom <= 1 ? 1 : Math.max(0, Math.min(1, (maxZoom - (zoomScale || 1)) / (maxZoom - 1)));
-  const startX = state.currentPanStartX;
-  const startY = state.currentPanStartY;
+  const startX = round.startFocusX ?? round.focusX ?? 50;
+  const startY = round.startFocusY ?? round.focusY ?? 50;
   const endX = round.focusX ?? 50;
   const endY = round.focusY ?? 50;
   const currentX = startX + (endX - startX) * t;
