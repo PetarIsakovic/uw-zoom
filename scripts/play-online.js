@@ -416,12 +416,22 @@ function hydrateSessionFromUrl() {
     Boolean(handoff?.createPrivateRoom) || params.get(CREATE_PRIVATE_ROOM_QUERY_KEY) === "1";
   state.requestedRoomId = params.get(ROOM_QUERY_KEY) || "";
 
+  let savedPrefs = null;
+  try {
+    const raw = window.localStorage.getItem("uwzoom.landingPreferences");
+    if (raw) savedPrefs = JSON.parse(raw);
+  } catch {}
+
   if (handoff?.avatar) {
     state.avatar = handoff.avatar;
+  } else if (savedPrefs?.avatar && typeof savedPrefs.avatar === "object") {
+    state.avatar = savedPrefs.avatar;
   }
 
   if (playerNameInput) {
-    playerNameInput.value = normalizeName(handoff?.name || params.get("name") || "");
+    playerNameInput.value = normalizeName(
+      handoff?.name || params.get("name") || savedPrefs?.name || ""
+    );
   }
 
   window.history.replaceState({}, "", "/");
