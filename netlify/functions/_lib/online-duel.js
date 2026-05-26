@@ -1,6 +1,5 @@
 import { randomUUID } from "node:crypto";
 import { normalizeAvatarSelection } from "./avatar-selection.js";
-import { generateBotChat, generateBotReaction, generateBotWrongGuess } from "./bot-ai.js";
 import { censorProfanity } from "./censor.js";
 import { HttpError } from "./http.js";
 import { listPlayableCatalogImages } from "./image-catalog.js";
@@ -10,7 +9,6 @@ const ONLINE_QUEUE_PREFIX = "app/online-duel/queue";
 const ONLINE_PLAYER_PREFIX = "app/online-duel/players";
 const ONLINE_ROOM_PREFIX = "app/online-duel/rooms";
 const ONLINE_WINS_KEY = "app/online-duel/wins.json";
-const ONLINE_SETTINGS_KEY = "app/online-duel/settings.json";
 
 const ROOM_TYPE_PUBLIC = "public";
 const ROOM_TYPE_PRIVATE = "private";
@@ -33,37 +31,15 @@ const ROUND_INTERMISSION_MS = 3500;
 // Each zoom level lasts a different amount of time (most → least zoomed in)
 const ZOOM_STEP_DURATIONS_MS = [32000, 24000, 16000, 8000];
 const ZOOM_LEVELS = [4.6, 3.2, 2.2, 1.0];
-const ROUND_STEP_MS = ZOOM_STEP_DURATIONS_MS[0]; // kept for bot zoom-step index calc
 const ROUND_DURATION_MS = ZOOM_STEP_DURATIONS_MS.reduce((s, d) => s + d, 0);
 const RECENT_GUESSES_LIMIT = 6;
 const ROOM_GUESS_FEED_LIMIT = 16;
 const MIN_GUESS_GAP_MS = 700;
 
-// Bot constants
-const BOT_NAMES = ["Alex", "Jamie", "Jordan", "Sam", "Riley", "Taylor", "Morgan", "Casey", "Drew", "Quinn", "Avery", "Blake"];
-// Bot guess timing — uses a bimodal distribution: sometimes very fast, sometimes slow
-const BOT_GUESS_FAST_MIN_MS = 10 * 1000;
-const BOT_GUESS_FAST_MAX_MS = 18 * 1000;
-const BOT_GUESS_SLOW_MIN_MS = 28 * 1000;
-const BOT_GUESS_SLOW_MAX_MS = 45 * 1000;
-// After the bot reacts to a human message, it waits longer before its next guess
-const BOT_POST_INSULT_COOLDOWN_MS = 15 * 1000;
-const BOT_CORRECT_GUESS_MIN_STEP = 3; // bot guesses correctly starting at zoom step 3 (4th level)
-// Wrong guesses that look plausible for zoomed-in UW campus photos
-const BOT_WRONG_GUESSES = [
-  "Dana Porter", "Davis Centre", "SLC", "PAC", "CIF", "RCH", "E7", "E5", "QNC",
-  "Needles Hall", "Fed Hall", "BMH", "MC building", "Ring Road", "Village",
-  "REV", "Ron Eydt Village", "Earth Sciences", "Science Teaching Complex",
-  "Columbia Lake", "Waterloo Park", "WatCard", "Commissary", "goose fountain",
-  "Physics building", "Chemistry building", "Engineering building", "Math faculty",
-  "Student Life Centre", "Modern Languages", "Anthropology building", "Conrad Grebel",
-  "Renison", "St. Paul's", "Engineering 3", "Engineering 6",
-  "Laurel Creek", "DC library", "Optometry building", "Environment building",
-];
 
 /**
  * Returns true if the guess looks like trash talk / chat rather than a genuine
- * campus location guess. Used to decide whether the bot should react.
+ * campus location guess rather than trash talk / chat.
  * A "real" guess typically references a known building, acronym, or place name.
  * Chat messages tend to be greetings, taunts, filler words, or random phrases.
  */
@@ -306,45 +282,18 @@ export async function joinOnlineDuel({ origin, name, playerId, token, avatar, ro
     };
   }
 
-  // No human opponents — check if bot is enabled, then pair with a bot or queue the player
-  const settings = await loadOnlineDuelSettings();
-
-  if (!settings.botEnabled) {
-    // Bot disabled — queue the player and wait for a human
-    await putJson(queueEntryKey(session.playerId), {
-      playerId: session.playerId,
-      token: session.token,
-      name: normalizeName(session.name),
-      avatar: normalizeAvatarSelection(session.avatar),
-      joinedAt: new Date().toISOString(),
-    });
-    return {
-      status: "queued",
-      playerId: session.playerId,
-      token: session.token,
-      room: null,
-    };
-  }
-
-  const bot = createBotSession();
-  const room = await createRoom(origin, [session, bot], {
-    type: ROOM_TYPE_PUBLIC,
-    status: ROOM_STATUS_LIVE,
-    maxPlayers: PUBLIC_ROOM_MAX_PLAYERS,
-    hostId: session.playerId,
-    botPlayerId: bot.playerId,
-  });
-
-  await Promise.all([
-    putJson(roomKey(room.id), room),
-    putJson(playerAssignmentKey(session.playerId), buildPlayerAssignment(room, session)),
-  ]);
-
-  return {
-    status: room.status,
+  await putJson(queueEntryKey(session.playerId), {
     playerId: session.playerId,
     token: session.token,
-    room: buildPublicRoomState(room, session.playerId, origin),
+    name: normalizeName(session.name),
+    avatar: normalizeAvatarSelection(session.avatar),
+    joinedAt: new Date().toISOString(),
+  });
+  return {
+    status: "queued",
+    playerId: session.playerId,
+    token: session.token,
+    room: null,
   };
 }
 
@@ -409,22 +358,6 @@ export async function getOnlineDuelState({ origin, playerId, token }) {
   };
 }
 
-async function loadOnlineDuelSettings() {
-  try {
-    const data = await getJson(ONLINE_SETTINGS_KEY);
-    return { botEnabled: data?.botEnabled !== false };
-  } catch {
-    return { botEnabled: true };
-  }
-}
-
-export async function adminSetBotEnabled({ enabled }) {
-  requireOnlineStorage();
-  const settings = { botEnabled: Boolean(enabled) };
-  await putJson(ONLINE_SETTINGS_KEY, settings);
-  return settings;
-}
-
 export async function adminEndOnlineDuelRoom({ roomId }) {
   requireOnlineStorage();
 
@@ -450,7 +383,7 @@ export async function adminEndOnlineDuelRoom({ roomId }) {
 export async function loadOnlineDuelAdminStats() {
   requireOnlineStorage();
 
-  const [queueEntries, settings] = await Promise.all([loadActiveQueueEntries(), loadOnlineDuelSettings()]);
+  const queueEntries = await loadActiveQueueEntries();
   const roomEntries = await listJson(`${ONLINE_ROOM_PREFIX}/`);
   const activeRooms = [];
   let totalGamesPlayed = 0;
@@ -502,7 +435,6 @@ export async function loadOnlineDuelAdminStats() {
 
   return {
     updatedAt: new Date().toISOString(),
-    botEnabled: settings.botEnabled,
     totals: {
       totalGamesPlayed,
       activeGames: activeRooms.length,
@@ -618,7 +550,7 @@ export async function submitOnlineDuelGuess({ origin, playerId, token, guess }) 
   };
 
   if (correct) {
-    // Round ends when ALL players (including bot) have guessed correctly
+    // Round ends when ALL players have guessed correctly
     const allGuessedCorrectly = room.players.every((p) => {
       const guesses = room.currentRoundGuesses[p.id] || [];
       return guesses.some((g) => g.correct);
@@ -1001,158 +933,6 @@ function buildPlayerAssignment(room, session) {
   };
 }
 
-function createBotSession() {
-  const name = BOT_NAMES[Math.floor(Math.random() * BOT_NAMES.length)];
-  return {
-    playerId: randomUUID(),
-    token: randomUUID(),
-    name,
-    avatar: {
-      body: Math.floor(Math.random() * 8),
-      eyes: Math.floor(Math.random() * 8),
-      mouth: Math.floor(Math.random() * 8),
-      extra: Math.floor(Math.random() * 8),
-    },
-    isBot: true,
-  };
-}
-
-async function syncBotActions(room, now) {
-  if (!room.botPlayerId || room.status !== ROOM_STATUS_LIVE || room.currentRoundResolvedAt) {
-    return false;
-  }
-
-  const bot = room.players.find((p) => p.id === room.botPlayerId);
-  if (!bot) return false;
-
-  // Keep bot heartbeat alive
-  bot.lastSeenAt = new Date(now).toISOString();
-
-  const currentRound = room.rounds[room.currentRoundIndex];
-  if (!currentRound) return false;
-
-  const roundStartedAtMs = Date.parse(room.currentRoundStartedAt || "");
-  if (!Number.isFinite(roundStartedAtMs) || now < roundStartedAtMs) return false;
-
-  const elapsedMs = now - roundStartedAtMs;
-  const zoomStepIndex = zoomStepIndexForElapsed(elapsedMs);
-
-  const lastActionAtMs = Date.parse(room.botLastActionAt || "");
-
-  // Send one opening slang word 2–4s after round starts, before any human interaction
-  if (!Number.isFinite(lastActionAtMs)) {
-    const openingDelay = 2000 + Math.floor(Math.random() * 2000);
-    if (elapsedMs >= openingDelay) {
-      const openers = [
-        "gg", "lol", "omg", "lmao", "fr", "ngl", "omgg", "ong", "slay",
-        "ggs", "pls", "waht", "ok", "rly", "bro", "lmfao", "deadass", "istg",
-      ];
-      const opener = openers[Math.floor(Math.random() * openers.length)];
-      if (!Array.isArray(room.roomChatMessages)) room.roomChatMessages = [];
-      room.roomChatMessages = [
-        ...room.roomChatMessages,
-        { playerId: room.botPlayerId, name: bot.name, text: opener, at: new Date(now).toISOString() },
-      ].slice(-20);
-      room.botLastActionAt = new Date(now).toISOString();
-      return true;
-    }
-  }
-
-  // Count all human messages this round (guesses + chats)
-  const allHumanMessages = Object.entries(room.currentRoundGuesses || {})
-    .filter(([pid]) => pid !== room.botPlayerId)
-    .flatMap(([, entries]) => (Array.isArray(entries) ? entries : []));
-
-  const botGuesses = Array.isArray(room.currentRoundGuesses?.[room.botPlayerId])
-    ? room.currentRoundGuesses[room.botPlayerId]
-    : [];
-  const botAlreadyGuessedCorrectly = botGuesses.some((g) => g.correct);
-
-  if (!botAlreadyGuessedCorrectly) {
-    const timeSinceLastAction = Number.isFinite(lastActionAtMs) ? now - lastActionAtMs : Infinity;
-    const botGuessCooldownMs = 14000 + Math.floor(Math.random() * 8000);
-
-    // Find if any real player has already guessed correctly and when
-    const humanCorrectEntry = Object.entries(room.currentRoundGuesses || {})
-      .filter(([pid]) => pid !== room.botPlayerId)
-      .flatMap(([, entries]) => (Array.isArray(entries) ? entries : []))
-      .filter((e) => e.correct)
-      .sort((a, b) => Date.parse(a.at) - Date.parse(b.at))[0];
-    const humanCorrectAtMs = humanCorrectEntry ? Date.parse(humanCorrectEntry.at) : null;
-    const humanHasGuessedCorrectly = humanCorrectAtMs !== null;
-    const timeSinceHumanCorrect = humanHasGuessedCorrectly ? now - humanCorrectAtMs : 0;
-
-    if (timeSinceLastAction >= botGuessCooldownMs) {
-      // After human gets it right: make wrong guesses until 10s have passed, then guess correctly
-      const shouldGuessCorrect = humanHasGuessedCorrectly && timeSinceHumanCorrect >= 10000;
-      let guessText;
-
-      if (shouldGuessCorrect) {
-        guessText = currentRound.answer;
-      } else {
-        guessText = await generateBotWrongGuess({ zoomStepIndex, answer: currentRound.answer });
-      }
-
-      const normalizedGuessText = normalizeGuessDisplay(guessText);
-      const guessCorrect = shouldGuessCorrect;
-      room.currentRoundGuesses = {
-        ...room.currentRoundGuesses,
-        [room.botPlayerId]: trimGuessHistory([
-          ...botGuesses,
-          { guess: normalizedGuessText, correct: guessCorrect, points: 0, at: new Date(now).toISOString() },
-        ]),
-      };
-
-      if (guessCorrect) {
-        // Check if all players have now guessed correctly
-        const allGuessedCorrectly = room.players.every((p) => {
-          const guesses = room.currentRoundGuesses[p.id] || [];
-          return guesses.some((g) => g.correct);
-        });
-        if (allGuessedCorrectly) {
-          resolveCurrentRound(room, { resolvedAt: now, reason: "guess" });
-        }
-      }
-
-      room.botLastActionAt = new Date(now).toISOString();
-      return true;
-    }
-  }
-
-  // React to human messages if there are 2+ and human said something since last bot action
-  if (allHumanMessages.length < 2) return false;
-
-  const lastHumanActivityMs = Math.max(
-    ...allHumanMessages.map((g) => Date.parse(g.at || "") || 0),
-    ...(room.roomChatMessages || [])
-      .filter((m) => m.playerId !== room.botPlayerId)
-      .map((m) => Date.parse(m.at || "") || 0),
-    0,
-  );
-
-  if (lastHumanActivityMs === 0 || (Number.isFinite(lastActionAtMs) && lastActionAtMs > lastHumanActivityMs)) {
-    return false;
-  }
-
-  const sinceMs = Number.isFinite(lastActionAtMs) ? lastActionAtMs : 0;
-  const recentHumanMessages = allHumanMessages.filter((g) => Date.parse(g.at || "") > sinceMs);
-  const latestHuman = recentHumanMessages.sort((a, b) => Date.parse(b.at) - Date.parse(a.at))[0];
-  if (!latestHuman) return false;
-
-  // Reply after 2–4 seconds
-  const chatDelay = 2000 + Math.floor(Math.random() * 2000);
-  if (now - Date.parse(latestHuman.at) < chatDelay) return false;
-
-  const reaction = await generateBotReaction({ humanMessage: latestHuman.guess });
-  if (!Array.isArray(room.roomChatMessages)) room.roomChatMessages = [];
-  room.roomChatMessages = [
-    ...room.roomChatMessages,
-    { playerId: room.botPlayerId, name: bot.name, text: reaction, at: new Date(now).toISOString() },
-  ].slice(-20);
-  room.botLastActionAt = new Date(now).toISOString();
-  return true;
-}
-
 async function createRoom(origin, players, options = {}) {
   const playableImages = shuffleArray(await listPlayableCatalogImages(origin));
 
@@ -1187,7 +967,6 @@ async function createRoom(origin, players, options = {}) {
       token: player.token,
       name: player.name,
       avatar: normalizeAvatarSelection(player.avatar),
-      isBot: Boolean(player.isBot),
       joinedAt: new Date(now).toISOString(),
       lastSeenAt: new Date(now).toISOString(),
     })),
@@ -1204,9 +983,6 @@ async function createRoom(origin, players, options = {}) {
     finishedAt: "",
     endedReason: "",
     winsRecordedAt: "",
-    botPlayerId: normalizeId(options.botPlayerId) || "",
-    botLastActionAt: "",
-    botLastInsultAt: "",
     roomChatMessages: [],
   };
 }
@@ -1216,20 +992,7 @@ async function syncRoom(room) {
   const nextRoom = normalizeRoom(room);
   let changed = false;
 
-  // Refresh bot heartbeat before staleness check so it's never pruned
-  if (nextRoom.botPlayerId && nextRoom.status !== ROOM_STATUS_FINISHED) {
-    const bot = nextRoom.players.find((p) => p.id === nextRoom.botPlayerId);
-    if (bot) {
-      bot.lastSeenAt = new Date(now).toISOString();
-    }
-  }
-
   if (await pruneStaleRoomPlayers(nextRoom, now)) {
-    changed = true;
-  }
-
-  // Run bot actions — may submit a guess or resolve the round
-  if (await syncBotActions(nextRoom, now)) {
     changed = true;
   }
 
@@ -1284,8 +1047,7 @@ async function syncRoom(room) {
       break;
     }
 
-    const realPlayers = nextRoom.players.filter((p) => p.id !== nextRoom.botPlayerId);
-    if (realPlayers.length === 0) {
+    if (nextRoom.players.length === 0) {
       nextRoom.status = ROOM_STATUS_FINISHED;
       nextRoom.finishedAt = new Date(now).toISOString();
       nextRoom.winnerId = nextRoom.players[0]?.id || "";
@@ -1316,8 +1078,6 @@ async function syncRoom(room) {
       nextRoom.currentRoundWinnerId = "";
       nextRoom.currentRoundWinningGuess = "";
       nextRoom.currentRoundGuesses = {};
-      nextRoom.botLastActionAt = "";
-      nextRoom.botLastInsultAt = "";
       nextRoom.updatedAt = new Date(now).toISOString();
       changed = true;
       continue;
@@ -1441,7 +1201,7 @@ function resolveMatchWinnerId(room) {
 async function recordMatchWin(room, winnerId) {
   const winner = room.players.find((player) => player.id === winnerId);
 
-  if (!winner?.name || winner.isBot) {
+  if (!winner?.name) {
     return;
   }
 
@@ -1645,7 +1405,6 @@ function buildPublicPlayer(player, scores, currentPlayerId = "") {
     score: normalizeScore(scores[player.id]),
     joinedAt: player.joinedAt || "",
     isYou: currentPlayerId ? player.id === currentPlayerId : false,
-    // isBot intentionally omitted — keeps the bot indistinguishable client-side
   };
 }
 
@@ -1683,7 +1442,7 @@ function getPublicRoomGuesses(guessesByPlayer, players, currentPlayerId, chatMes
     }
   }
 
-  // Merge in bot chat messages
+  // Merge in chat messages
   if (Array.isArray(chatMessages)) {
     for (const msg of chatMessages) {
       guesses.push({
@@ -2013,7 +1772,6 @@ function normalizeRoom(value) {
             token: normalizeId(player.token),
             name: normalizeName(player?.name),
             avatar: normalizeAvatarSelection(player?.avatar),
-            isBot: Boolean(player?.isBot),
             joinedAt: player?.joinedAt || new Date().toISOString(),
             lastSeenAt: player?.lastSeenAt || player?.joinedAt || new Date().toISOString(),
           }))
@@ -2036,9 +1794,6 @@ function normalizeRoom(value) {
     winsRecordedAt: String(value?.winsRecordedAt || ""),
     updatedAt: value?.updatedAt || new Date().toISOString(),
     createdAt: value?.createdAt || new Date().toISOString(),
-    botPlayerId: normalizeId(value?.botPlayerId) || "",
-    botLastActionAt: String(value?.botLastActionAt || ""),
-    botLastInsultAt: String(value?.botLastInsultAt || ""),
     roomChatMessages: Array.isArray(value?.roomChatMessages) ? value.roomChatMessages : [],
   };
 }
