@@ -274,8 +274,14 @@ function renderOnlineStats(payload) {
   const summaryGrid = document.createElement("div");
   summaryGrid.className = "review-stats-grid";
 
+  const currentlyOnline = (payload.totals.queuedPlayers || 0) +
+    (payload.totals.playersInActiveGames || 0) +
+    (payload.totals.waitingLobbyPlayers || 0);
+
   const summaryItems = [
+    ["Currently online", String(currentlyOnline)],
     ["Total games played", String(payload.totals.totalGamesPlayed || 0)],
+    ["Total unique players", String(payload.totals.totalUniquePlayers || 0)],
     ["Active games", String(payload.totals.activeGames || 0)],
     ["Public lobbies (waiting)", String(payload.totals.publicWaitingLobbies || 0)],
     ["Private lobbies (waiting)", String(payload.totals.privateWaitingLobbies || 0)],

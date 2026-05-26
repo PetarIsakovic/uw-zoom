@@ -383,10 +383,19 @@ export async function adminEndOnlineDuelRoom({ roomId }) {
 export async function loadOnlineDuelAdminStats() {
   requireOnlineStorage();
 
-  const queueEntries = await loadActiveQueueEntries();
+  const [queueEntries, winsPayload] = await Promise.all([
+    loadActiveQueueEntries(),
+    getJson(ONLINE_WINS_KEY),
+  ]);
   const roomEntries = await listJson(`${ONLINE_ROOM_PREFIX}/`);
   const activeRooms = [];
   let totalGamesPlayed = 0;
+  const uniquePlayerNames = new Set();
+
+  const winsLeaders = Array.isArray(winsPayload?.leaders) ? winsPayload.leaders : [];
+  for (const entry of winsLeaders) {
+    if (entry?.name) uniquePlayerNames.add(entry.name.toLowerCase());
+  }
 
   for (const entry of roomEntries) {
     const room = normalizeRoom(entry);
@@ -409,12 +418,20 @@ export async function loadOnlineDuelAdminStats() {
       continue;
     }
 
+    for (const player of syncedRoom.players || []) {
+      if (player.name) uniquePlayerNames.add(player.name.toLowerCase());
+    }
+
     if (syncedRoom.status === ROOM_STATUS_FINISHED) {
       totalGamesPlayed += 1;
       continue;
     }
 
     activeRooms.push(buildAdminRoomState(syncedRoom));
+  }
+
+  for (const entry of queueEntries) {
+    if (entry.name) uniquePlayerNames.add(entry.name.toLowerCase());
   }
 
   activeRooms.sort((left, right) => {
@@ -437,6 +454,7 @@ export async function loadOnlineDuelAdminStats() {
     updatedAt: new Date().toISOString(),
     totals: {
       totalGamesPlayed,
+      totalUniquePlayers: uniquePlayerNames.size,
       activeGames: activeRooms.length,
       waitingRooms: waitingRooms.length,
       liveGames: liveRooms.length,
