@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { normalizeAvatarSelection } from "./avatar-selection.js";
 import { censorProfanity } from "./censor.js";
 import { HttpError } from "./http.js";
@@ -1362,6 +1362,7 @@ function buildPublicRoomState(room, playerId, origin) {
           winnerName: resolvePlayerName(room, room.currentRoundWinnerId),
           winningGuess: room.currentRoundWinningGuess,
           answer: room.currentRoundResolvedAt ? currentRound.answer : "",
+          answerHashes: room.currentRoundResolvedAt ? [] : answerHashesForRound(currentRound),
           letterHint: room.currentRoundResolvedAt ? "" : buildLetterHint(currentRound.answer, zoomStepIndex),
           youGuesses: getPublicGuesses(room.currentRoundGuesses?.[playerId]),
           opponentGuesses: getPublicGuesses(room.currentRoundGuesses?.[primaryOpponent?.id]),
@@ -1909,6 +1910,31 @@ function isCorrectGuess(guess, round) {
     const shortestLength = Math.min(answer.length, guess.length);
     return answer === guess || (shortestLength >= 4 && (answer.includes(guess) || guess.includes(answer)));
   });
+}
+
+/**
+ * SHA-256 hex hash of a normalized string. The client mirrors normalizeGuess +
+ * this hashing so it can recognize a correct guess instantly without ever
+ * receiving the plaintext answer.
+ */
+function hashAnswer(value) {
+  return createHash("sha256").update(String(value), "utf8").digest("hex");
+}
+
+/**
+ * Hashes of every accepted answer for a round, using the same normalization the
+ * client applies to guesses. Exposed to the client so it can give instant
+ * feedback on an exact/variant match. The server still runs the authoritative
+ * isCorrectGuess (which also allows substring matches) on submission, so the
+ * client hashes only ever produce a fast optimistic "yes" — never a false
+ * "correct" the server would reject.
+ */
+function answerHashesForRound(round) {
+  if (!round) return [];
+  const answers = [round.answer, ...(round.acceptedAnswers || [])]
+    .map(normalizeGuess)
+    .filter(Boolean);
+  return [...new Set(answers)].map(hashAnswer);
 }
 
 function trimGuessHistory(values) {

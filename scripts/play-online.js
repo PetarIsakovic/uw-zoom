@@ -2,6 +2,7 @@ import { ensureAvatarIconAssets, drawAvatarIcon } from "/scripts/avatar-icon.js"
 import {
   censorProfanity,
   clearPendingOnlineLeave,
+  normalizeAnswer,
   requestJson,
   setStatus,
   stashPendingOnlineLeave,
@@ -68,6 +69,9 @@ const guessLabel = document.querySelector("#online-guess-label");
 const POLL_INTERVAL_QUEUED_MS = 2000;
 const POLL_INTERVAL_WAITING_MS = 1000;
 const POLL_INTERVAL_LIVE_MS = 1000;
+// Mirror the server's MIN_GUESS_GAP_MS so we can re-enable the input locally
+// without waiting for the round-trip, while still respecting the rate limit.
+const MIN_GUESS_GAP_MS = 700;
 const AUTO_JOIN_QUERY_KEY = "autoplay";
 const CREATE_PRIVATE_ROOM_QUERY_KEY = "createPrivateRoom";
 const ROOM_QUERY_KEY = "room";
@@ -116,6 +120,8 @@ const state = {
   queueTitleTick: 0,
   queueTitleTimer: 0,
   pendingRoomGuesses: [],
+  lastGuessSentAt: 0,
+  lastZoomScale: null,
   soundEnabled: true,
   volume: 80,
   soundInitialized: false,
@@ -622,15 +628,41 @@ async function submitGuess() {
     return;
   }
 
+  // Since we re-enable the input instantly (optimistic UI), mirror the server's
+  // guess gap locally so rapid submissions don't get bounced with a 429.
+  const nowMs = Date.now();
+  if (nowMs - state.lastGuessSentAt < MIN_GUESS_GAP_MS) {
+    return;
+  }
+  state.lastGuessSentAt = nowMs;
+
   const pendingEntry = createPendingRoomGuess(displayGuess);
 
   try {
+    // Optimistic UI: show the guess in the feed immediately and let the player
+    // keep going. The server stays the source of truth for correctness/points.
     pushPendingRoomGuess(pendingEntry);
     guessForm.reset();
-    guessButton.disabled = true;
     clearInlineSuggestion();
     rerenderActiveRoom();
-    setStatus(onlineStatus, "Sending guess...", "default");
+
+    // Re-enable the input right away (respecting the server's guess gap) so the
+    // player doesn't have to wait for the round-trip to type their next guess.
+    guessButton.disabled = false;
+    guessInput?.focus();
+
+    // Instant correctness: hash the guess locally and compare to the round's
+    // answer hashes. On a match we mark the guess correct immediately (✓ in the
+    // feed) without waiting for the server. The server response below still
+    // reconciles the authoritative result (points, round resolution, sync).
+    const answerHashes = state.latestPayload?.room?.currentRound?.answerHashes;
+    if (Array.isArray(answerHashes) && answerHashes.length) {
+      const guessHash = await hashGuess(rawGuess);
+      if (guessHash && answerHashes.includes(guessHash)) {
+        pendingEntry.correct = true;
+        rerenderActiveRoom();
+      }
+    }
 
     const payload = await requestJson("/api/online-duel-guess", {
       method: "POST",
@@ -1170,10 +1202,13 @@ function updateImageStage(round, zoomScale, overlayText) {
     showImageLoading(overlayText || "Waiting for round...");
     gameImage.removeAttribute("src");
     state.currentImageUrl = "";
+    state.lastZoomScale = null;
     return;
   }
 
-  if (state.currentImageUrl !== round.imageUrl) {
+  const imageChanged = state.currentImageUrl !== round.imageUrl;
+
+  if (imageChanged) {
     state.currentImageUrl = round.imageUrl;
     gameImage.src = round.imageUrl;
     // Only show loading overlay if image isn't cached/loaded already
@@ -1184,7 +1219,8 @@ function updateImageStage(round, zoomScale, overlayText) {
 
   const zoomLevels = round.zoomLevels || [1];
   const maxZoom = zoomLevels[0] || 1;
-  const t = maxZoom <= 1 ? 1 : Math.max(0, Math.min(1, (maxZoom - (zoomScale || 1)) / (maxZoom - 1)));
+  const nextScale = zoomScale || 1;
+  const t = maxZoom <= 1 ? 1 : Math.max(0, Math.min(1, (maxZoom - nextScale) / (maxZoom - 1)));
   const startX = round.startFocusX ?? round.focusX ?? 50;
   const startY = round.startFocusY ?? round.focusY ?? 50;
   const endX = round.focusX ?? 50;
@@ -1192,8 +1228,29 @@ function updateImageStage(round, zoomScale, overlayText) {
   const currentX = startX + (endX - startX) * t;
   const currentY = startY + (endY - startY) * t;
   gameImage.style.transformOrigin = `${currentX}% ${currentY}%`;
-  gameImage.style.transform = `scale(${zoomScale || 1})`;
-  gameImage.style.transition = "transform 1.5s ease-out, transform-origin 1.5s ease-out";
+
+  // At the START of a round the scale jumps UP (e.g. 1 -> maxZoom). With the
+  // animated transition active, the browser would animate that jump, showing
+  // the image fully zoomed out and then zooming in — which we don't want. Snap
+  // instantly (no transition) whenever the image changes or the zoom increases;
+  // the normal per-step zoom-out still animates smoothly.
+  const previousScale = state.lastZoomScale;
+  const shouldSnap =
+    imageChanged || previousScale === null || nextScale > previousScale + 0.001;
+
+  if (shouldSnap) {
+    gameImage.style.transition = "none";
+    gameImage.style.transform = `scale(${nextScale})`;
+    // Force a reflow so the no-transition scale commits before we restore the
+    // animated transition, otherwise the next zoom-out step wouldn't animate.
+    void gameImage.offsetWidth;
+    gameImage.style.transition = "transform 1.5s ease-out, transform-origin 1.5s ease-out";
+  } else {
+    gameImage.style.transform = `scale(${nextScale})`;
+    gameImage.style.transition = "transform 1.5s ease-out, transform-origin 1.5s ease-out";
+  }
+
+  state.lastZoomScale = nextScale;
 
   if (overlayText) {
     showImageLoading(overlayText);
@@ -1207,6 +1264,7 @@ function updateImageStage(round, zoomScale, overlayText) {
 
 function resetImageStage() {
   state.currentImageUrl = "";
+  state.lastZoomScale = null;
   gameImage.removeAttribute("src");
   hideImageLoading();
 }
@@ -1936,6 +1994,33 @@ function createGuestName() {
 
 function normalizeGuessDisplay(value) {
   return censorProfanity(value, { maxLength: 80 });
+}
+
+/**
+ * SHA-256 hex hash of a normalized guess, mirroring the server's
+ * normalizeGuess + hashAnswer so a locally computed hash matches the
+ * round.answerHashes the server sends. Used for instant correct-guess
+ * feedback without ever receiving the plaintext answer.
+ * Returns "" when Web Crypto is unavailable (e.g. non-secure context).
+ */
+async function hashGuess(value) {
+  const normalized = normalizeAnswer(value);
+  if (!normalized) return "";
+
+  const subtle = window.crypto?.subtle;
+  if (!subtle || typeof TextEncoder === "undefined") {
+    return "";
+  }
+
+  try {
+    const data = new TextEncoder().encode(normalized);
+    const digest = await subtle.digest("SHA-256", data);
+    return Array.from(new Uint8Array(digest))
+      .map((byte) => byte.toString(16).padStart(2, "0"))
+      .join("");
+  } catch {
+    return "";
+  }
 }
 
 function createPendingRoomGuess(guess) {

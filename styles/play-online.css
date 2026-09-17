@@ -1158,6 +1158,23 @@ body.play-online-in-lobby .play-online-settings-button {
 
 .play-online-guess-list li[data-pending="true"] {
   opacity: 0.72;
+  animation: play-online-pending-pulse 1.1s ease-in-out infinite;
+}
+
+@keyframes play-online-pending-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 0.85;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .play-online-guess-list li[data-pending="true"] {
+    animation: none;
+  }
 }
 
 
