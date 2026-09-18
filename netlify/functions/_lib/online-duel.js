@@ -954,8 +954,9 @@ async function createRoom(origin, players, options = {}) {
     acceptedAnswers: image.acceptedAnswers || [],
     focusX: image.focusX || 50,
     focusY: image.focusY || 50,
-    startFocusX: 15 + Math.floor(Math.random() * 70),
-    startFocusY: 15 + Math.floor(Math.random() * 70),
+    // Start the camera centered and zoomed in (pans out from the middle).
+    startFocusX: 50,
+    startFocusY: 50,
   }));
 
   const now = Date.now();
@@ -1080,8 +1081,8 @@ async function syncRoom(room) {
     if (nextRoom.currentRoundIndex >= nextRoom.rounds.length) {
       nextRoom.currentRoundIndex = 0;
       for (const round of nextRoom.rounds) {
-        round.startFocusX = 15 + Math.floor(Math.random() * 70);
-        round.startFocusY = 15 + Math.floor(Math.random() * 70);
+        round.startFocusX = 50;
+        round.startFocusY = 50;
       }
       nextRoom.updatedAt = new Date(now).toISOString();
       changed = true;
@@ -1099,8 +1100,8 @@ async function syncRoom(room) {
       nextRoom.currentRoundIndex += 1;
       const nextRound = nextRoom.rounds[nextRoom.currentRoundIndex];
       if (nextRound) {
-        nextRound.startFocusX = 15 + Math.floor(Math.random() * 70);
-        nextRound.startFocusY = 15 + Math.floor(Math.random() * 70);
+        nextRound.startFocusX = 50;
+        nextRound.startFocusY = 50;
       }
       nextRoom.currentRoundStartedAt = new Date(now + ROUND_COUNTDOWN_MS).toISOString();
       nextRoom.currentRoundResolvedAt = "";
