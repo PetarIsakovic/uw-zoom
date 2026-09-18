@@ -21,6 +21,13 @@ const guessMeter = document.querySelector("#guess-meter");
 const streakMeter = document.querySelector("#streak-meter");
 const feedback = document.querySelector("#feedback");
 const image = document.querySelector("#game-image");
+
+// Light deterrent: block right-click "open/save image" and drag-to-save so
+// players can't trivially open the full picture in a new tab. Not real
+// protection (the image is still in devtools/network), just stops casual peeking.
+image?.addEventListener("contextmenu", (event) => event.preventDefault());
+image?.addEventListener("dragstart", (event) => event.preventDefault());
+
 const form = document.querySelector("#guess-form");
 const input = document.querySelector("#guess-input");
 const ghostTyped = document.querySelector("#ghost-typed");

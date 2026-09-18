@@ -1210,10 +1210,14 @@ function updateImageStage(round, zoomScale, overlayText) {
 
   if (imageChanged) {
     state.currentImageUrl = round.imageUrl;
+    // Cover the previous frame with the loading overlay until the new image
+    // actually decodes. Otherwise the old image stays visible (and gets
+    // re-scaled to the new round's zoom), producing a flash of the previous
+    // round's picture before the new one paints. The "load" handler hides the
+    // overlay once the incoming image is ready.
     gameImage.src = round.imageUrl;
-    // Only show loading overlay if image isn't cached/loaded already
     if (!gameImage.complete || !gameImage.naturalWidth) {
-      hideImageLoading();
+      showImageLoading(overlayText || "Loading next image...");
     }
   }
 
@@ -1278,6 +1282,14 @@ gameImage?.addEventListener("error", () => {
   showImageLoading("Image failed to load. Refresh and try again.");
   setStatus(onlineStatus, "That round image could not load.", "error");
 });
+
+// Light deterrent: block right-click "open/save image" and drag-to-save on the
+// round image so players can't trivially open the full picture in a new tab.
+// Note: this is not real protection — the image is still downloadable via
+// devtools/network — but it stops casual peeking.
+gameImage?.addEventListener("contextmenu", (event) => event.preventDefault());
+gameImage?.addEventListener("dragstart", (event) => event.preventDefault());
+stageEl?.addEventListener("contextmenu", (event) => event.preventDefault());
 
 function showImageLoading(message) {
   imageLoading.hidden = false;

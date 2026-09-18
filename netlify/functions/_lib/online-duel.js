@@ -1363,7 +1363,10 @@ function buildPublicRoomState(room, playerId, origin) {
           winningGuess: room.currentRoundWinningGuess,
           answer: room.currentRoundResolvedAt ? currentRound.answer : "",
           answerHashes: room.currentRoundResolvedAt ? [] : answerHashesForRound(currentRound),
-          letterHint: room.currentRoundResolvedAt ? "" : buildLetterHint(currentRound.answer, zoomStepIndex),
+          // Letter hints are disabled for now — always send an empty hint so
+          // the client shows nothing. To re-enable, restore:
+          // room.currentRoundResolvedAt ? "" : buildLetterHint(currentRound.answer, zoomStepIndex)
+          letterHint: "",
           youGuesses: getPublicGuesses(room.currentRoundGuesses?.[playerId]),
           opponentGuesses: getPublicGuesses(room.currentRoundGuesses?.[primaryOpponent?.id]),
           roomGuesses: getPublicRoomGuesses(room.currentRoundGuesses, room.players, playerId, room.roomChatMessages),
