@@ -561,6 +561,15 @@ export async function submitOnlineDuelGuess({ origin, playerId, token, guess }) 
   };
 
   if (correct) {
+    // Endless play: every correctly guessed image earns +1 on the online-wins
+    // (total-correct) leaderboard. This runs once per player per image — the
+    // "already guessed correctly this round" early-return above prevents a
+    // second award for the same image.
+    const player = room.players.find((p) => p.id === session.playerId);
+    if (player?.name) {
+      await awardOnlineWinPoints(player.name, player.avatar, 1);
+    }
+
     // Round ends when ALL players have guessed correctly
     const allGuessedCorrectly = room.players.every((p) => {
       const guesses = room.currentRoundGuesses[p.id] || [];
@@ -947,7 +956,11 @@ async function createRoom(origin, players, options = {}) {
     throw new HttpError(503, "No approved images are available for online play yet.");
   }
 
-  const rounds = playableImages.slice(0, Math.min(ROUND_COUNT, playableImages.length)).map((image) => ({
+  // Endless play: the room holds a shuffle-bag of the ENTIRE catalog. Rounds
+  // advance through every image with no repeats; when the bag is exhausted the
+  // advance loop reshuffles and continues. (Previously this sliced only the
+  // first ROUND_COUNT images, which caused the same few images to loop.)
+  const rounds = playableImages.map((image) => ({
     id: image.id,
     imageUrl: image.imageUrl,
     answer: image.answer,
@@ -1079,6 +1092,16 @@ async function syncRoom(room) {
     }
 
     if (nextRoom.currentRoundIndex >= nextRoom.rounds.length) {
+      // Endless play: we've shown every image in the catalog. Reshuffle the bag
+      // and start a fresh pass. Avoid an immediate repeat at the seam (the last
+      // image shown shouldn't be the first of the new shuffle).
+      const lastImageId = nextRoom.rounds[nextRoom.rounds.length - 1]?.id;
+      let reshuffled = shuffleArray(nextRoom.rounds);
+      if (reshuffled.length > 1 && reshuffled[0]?.id === lastImageId) {
+        const swapIndex = 1 + Math.floor(Math.random() * (reshuffled.length - 1));
+        [reshuffled[0], reshuffled[swapIndex]] = [reshuffled[swapIndex], reshuffled[0]];
+      }
+      nextRoom.rounds = reshuffled;
       nextRoom.currentRoundIndex = 0;
       for (const round of nextRoom.rounds) {
         round.startFocusX = 50;
@@ -1211,6 +1234,13 @@ function resolveCurrentRound(room, payload) {
     reason: payload.reason || (topPlayerId ? "guess" : "timeout"),
     resolvedAt,
   });
+
+  // Endless play never ends, so cap the history to avoid unbounded growth of
+  // the persisted room / public payload. Keeping the most recent entries is
+  // enough for any "recent rounds" display.
+  if (room.completedRounds.length > 20) {
+    room.completedRounds = room.completedRounds.slice(-20);
+  }
 }
 
 function resolveMatchWinnerId(room) {
@@ -1235,9 +1265,23 @@ async function recordMatchWin(room, winnerId) {
     return;
   }
 
+  await awardOnlineWinPoints(winner.name, winner.avatar, 1);
+}
+
+/**
+ * Adds `amount` to a player's total on the online-wins leaderboard, matching by
+ * normalized name (case-insensitive). Creates the entry if the player isn't
+ * present yet. Used to award +1 per correctly guessed image in endless play.
+ */
+async function awardOnlineWinPoints(name, avatar, amount = 1) {
+  const normalizedTarget = normalizeName(name);
+  if (!normalizedTarget) {
+    return;
+  }
+
   const payload = await getJson(ONLINE_WINS_KEY);
   const leaders = Array.isArray(payload?.leaders) ? payload.leaders : [];
-  const key = normalizeName(winner.name).toLocaleLowerCase("en-CA");
+  const key = normalizedTarget.toLocaleLowerCase("en-CA");
   const nextLeaders = [];
   let matched = false;
 
@@ -1251,8 +1295,8 @@ async function recordMatchWin(room, winnerId) {
     if (normalizedName.toLocaleLowerCase("en-CA") === key) {
       nextLeaders.push({
         name: normalizedName,
-        avatar: normalizeAvatarSelection(winner.avatar || entry?.avatar),
-        wins: normalizeScore(entry?.wins) + 1,
+        avatar: normalizeAvatarSelection(avatar || entry?.avatar),
+        wins: normalizeScore(entry?.wins) + amount,
       });
       matched = true;
       continue;
@@ -1267,9 +1311,9 @@ async function recordMatchWin(room, winnerId) {
 
   if (!matched) {
     nextLeaders.push({
-      name: normalizeName(winner.name),
-      avatar: normalizeAvatarSelection(winner.avatar),
-      wins: 1,
+      name: normalizedTarget,
+      avatar: normalizeAvatarSelection(avatar),
+      wins: amount,
     });
   }
 
