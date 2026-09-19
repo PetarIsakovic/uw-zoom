@@ -25,7 +25,9 @@ export const handler = withErrorHandling(async (event) => {
       source: "storage",
     },
     {
-      "Cache-Control": "public, max-age=60, s-maxage=180, stale-while-revalidate=300",
+      // Keep this near real-time so a point earned mid-game shows up right after
+      // you exit. A long cache made the board look like it wasn't updating.
+      "Cache-Control": "no-cache, max-age=0, s-maxage=0",
     },
   );
 });
