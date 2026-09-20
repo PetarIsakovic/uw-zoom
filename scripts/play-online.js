@@ -123,6 +123,8 @@ const state = {
   lastGuessSentAt: 0,
   currentZoomRoundKey: "",
   preloadedImageUrl: "",
+  awaitingNextImageSwap: false,
+  revealZoomUntil: 0,
   soundEnabled: true,
   volume: 80,
   soundInitialized: false,
@@ -1041,11 +1043,14 @@ function updateRoomSnapshot(room = state.latestPayload?.room) {
   }
 
   if (roundPopup) {
-    // Show the round-result ("game over") overlay during intermission. The next
-    // image is preloaded and the game image element stays hidden until its
-    // pixels are ready, so there's no flash to guard against here.
-    roundPopup.hidden = !snapshot.isIntermission;
-    if (snapshot.isIntermission) {
+    // Keep the round-result ("game over") overlay up during intermission AND
+    // until the NEXT image has fully transitioned in (state.awaitingNextImageSwap
+    // is cleared by the decode-deferred swap). But don't cover the rapid reveal
+    // zoom-out that plays right when the round resolves.
+    const inRevealZoom = state.revealZoomUntil && Date.now() < state.revealZoomUntil;
+    const showPopup = (snapshot.isIntermission || state.awaitingNextImageSwap) && !inRevealZoom;
+    roundPopup.hidden = !showPopup;
+    if (showPopup) {
       if (roundPopupTitle) roundPopupTitle.textContent = buildResolvedRoundMessage(room);
       if (roundPopupScores) {
         const scores = (room.players || [])
@@ -1210,30 +1215,56 @@ function updateImageStage(round, zoomScale, overlayText) {
     return;
   }
 
-  // Preload the NEXT round's image so the transition never shows a loading
-  // screen — by the time the next round starts, it's already decoded.
+  // Preload the NEXT round's image (download + decode) so it's fully ready
+  // before we ever need it.
   if (round.nextImageUrl && round.nextImageUrl !== state.preloadedImageUrl) {
     state.preloadedImageUrl = round.nextImageUrl;
     const pre = new Image();
     pre.src = round.nextImageUrl;
+    if (pre.decode) pre.decode().catch(() => {});
   }
 
   const imageChanged = state.currentImageUrl !== round.imageUrl;
   if (imageChanged) {
     state.currentImageUrl = round.imageUrl;
     state.currentZoomRoundKey = "";
-    // If this image was preloaded it's already decoded, so it shows instantly
-    // with no loading screen. Keep it hidden only until it's confirmed ready.
-    gameImage.src = round.imageUrl;
-    if (!(gameImage.complete && gameImage.naturalWidth > 0)) {
-      gameImage.style.visibility = "hidden";
-    } else {
+    // We're transitioning to a new image. Keep the round-over screen up until
+    // this completes (see the popup logic in renderRoom).
+    state.awaitingNextImageSwap = true;
+
+    // Swap only AFTER the new image is fully decoded. Until then keep the
+    // CURRENT (already-visible) frame on screen — never hide the element or
+    // show a loading card, which is what caused the flash before the next
+    // image. Because we preload above, decode is usually instant.
+    const incoming = new Image();
+    const applyIncoming = () => {
+      // Ignore if the round moved on again before this resolved.
+      if (state.currentImageUrl !== round.imageUrl) return;
+      gameImage.src = round.imageUrl;
       gameImage.style.visibility = "visible";
+      state.currentZoomRoundKey = ""; // force the zoom to (re)start for this image
+      state.awaitingNextImageSwap = false; // next image is now in — lift the overlay
+      if (state.latestPayload?.room) renderRoom(state.latestPayload.room);
+    };
+    incoming.src = round.imageUrl;
+    if (incoming.decode) {
+      incoming.decode().then(applyIncoming).catch(applyIncoming);
+    } else if (incoming.complete) {
+      applyIncoming();
+    } else {
+      incoming.onload = applyIncoming;
+      incoming.onerror = applyIncoming;
     }
+    // Do NOT touch gameImage yet — the previous image stays visible until the
+    // incoming one is ready. Skip the rest of this pass; applyIncoming triggers
+    // a re-render once ready.
+    hideImageLoading();
+    return;
   }
 
   // Never show a loading screen for the game image (we preload instead).
   hideImageLoading();
+  gameImage.style.visibility = "visible";
 
   const maxZoom = Number(round.maxZoom) || round.zoomLevels?.[0] || 1;
   const zoomOutMs = Number(round.zoomOutMs) || Number(round.roundDurationMs) || 20000;
@@ -1250,11 +1281,36 @@ function updateImageStage(round, zoomScale, overlayText) {
   const roundKey = `${round.imageUrl}|${round.startedAt || ""}|${resolved ? "done" : "live"}`;
 
   if (resolved || !Number.isFinite(startedAt)) {
-    // Round over / intermission: fully revealed, no animation.
-    gameImage.style.transition = "none";
-    gameImage.style.transformOrigin = `${endX}% ${endY}%`;
-    gameImage.style.transform = "scale(1)";
-    state.currentZoomRoundKey = roundKey;
+    // Round resolved (someone guessed / timeout) or no live timing: reveal the
+    // full image. On the FIRST resolved render, rapidly zoom out from wherever
+    // the zoom currently is to the full image (instead of snapping instantly).
+    // On later ticks during intermission, just hold it fully revealed.
+    if (state.currentZoomRoundKey !== roundKey) {
+      state.currentZoomRoundKey = roundKey;
+      if (Number.isFinite(startedAt)) {
+        // Freeze at the current scale, then animate quickly to full.
+        const computed = getComputedStyle(gameImage).transform;
+        gameImage.style.transition = "none";
+        gameImage.style.transform = computed;
+        void gameImage.offsetWidth; // commit the freeze
+        gameImage.style.transition = "transform 650ms ease-out, transform-origin 650ms ease-out";
+        requestAnimationFrame(() => {
+          gameImage.style.transformOrigin = `${endX}% ${endY}%`;
+          gameImage.style.transform = "scale(1)";
+        });
+        // Let the rapid zoom-out play before the round-over screen covers it.
+        state.revealZoomUntil = Date.now() + 650;
+        window.setTimeout(() => {
+          if (state.latestPayload?.room) renderRoom(state.latestPayload.room);
+        }, 700);
+      } else {
+        // No live timing (e.g. initial state): just show full, no animation.
+        gameImage.style.transition = "none";
+        gameImage.style.transformOrigin = `${endX}% ${endY}%`;
+        gameImage.style.transform = "scale(1)";
+        state.revealZoomUntil = 0;
+      }
+    }
     revealGameImageIfReady();
     return;
   }
@@ -1316,6 +1372,7 @@ function revealGameImageIfReady() {
 function resetImageStage() {
   state.currentImageUrl = "";
   state.currentZoomRoundKey = "";
+  state.awaitingNextImageSwap = false;
   gameImage.removeAttribute("src");
   hideImageLoading();
 }
@@ -1323,13 +1380,9 @@ function resetImageStage() {
 gameImage?.addEventListener("load", () => {
   hideImageLoading();
   maybeRevealLiveMatch();
-  // The image's pixels are ready — reveal it (it may have been hidden during a
-  // src swap) and re-render so the continuous zoom kicks off from the correct
-  // point for this round.
+  // Pixels are ready — make sure the element is visible. The src swap + zoom
+  // (re)start is handled in updateImageStage's decode callback.
   gameImage.style.visibility = "visible";
-  if (state.latestPayload?.room) {
-    renderRoom(state.latestPayload.room);
-  }
 });
 
 gameImage?.addEventListener("error", () => {
