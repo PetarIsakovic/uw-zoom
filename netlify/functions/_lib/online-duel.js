@@ -28,10 +28,17 @@ const LIVE_ROOM_PLAYER_STALE_MS = 60 * 1000;
 const ROUND_COUNT = 3;
 const ROUND_COUNTDOWN_MS = 0;
 const ROUND_INTERMISSION_MS = 3500;
-// Each zoom level lasts a different amount of time (most → least zoomed in)
-const ZOOM_STEP_DURATIONS_MS = [15000, 15000, 15000, 15000];
-const ZOOM_LEVELS = [4.6, 3.2, 2.2, 1.0];
+// Start insanely zoomed in and expand outward smoothly. Many fine steps (each
+// animated by the client's ~1.5s CSS transition) make the zoom-out feel nearly
+// continuous, like the demo. Total round length = sum of the step durations.
+const ZOOM_STEP_DURATIONS_MS = [2500, 2500, 2500, 2500, 2500, 2500, 2500, 2500]; // 8 x 2.5s = 20s
+const ZOOM_LEVELS = [8.0, 6.4, 5.1, 4.0, 3.1, 2.4, 1.7, 1.0];
 const ROUND_DURATION_MS = ZOOM_STEP_DURATIONS_MS.reduce((s, d) => s + d, 0);
+// Continuous zoom: one smooth motion from MAX_ZOOM down to 1.0 that finishes
+// ZOOM_HOLD_MS before the round ends (so it sits fully revealed for the last
+// few seconds). The stepped ZOOM_LEVELS above are kept only for legacy fields.
+const MAX_ZOOM = ZOOM_LEVELS[0];
+const ZOOM_HOLD_MS = 4000;
 const RECENT_GUESSES_LIMIT = 6;
 const ROOM_GUESS_FEED_LIMIT = 16;
 const MIN_GUESS_GAP_MS = 700;
@@ -1398,6 +1405,14 @@ function buildPublicRoomState(room, playerId, origin) {
           zoomStepMs: ZOOM_STEP_DURATIONS_MS[0],
           zoomStepDurationsMs: ZOOM_STEP_DURATIONS_MS,
           roundDurationMs: ROUND_DURATION_MS,
+          // Continuous zoom: animate MAX_ZOOM -> 1.0 over zoomOutMs, finishing
+          // ZOOM_HOLD_MS before the round ends.
+          maxZoom: MAX_ZOOM,
+          zoomOutMs: Math.max(0, ROUND_DURATION_MS - ZOOM_HOLD_MS),
+          // URL of the NEXT round's image so the client can preload it and never
+          // show a loading screen at the transition.
+          nextImageUrl:
+            room.rounds[(room.currentRoundIndex + 1) % Math.max(1, room.rounds.length)]?.imageUrl || "",
           intermissionMs: ROUND_INTERMISSION_MS,
           countdownMs,
           nextZoomInMs,
