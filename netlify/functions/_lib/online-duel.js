@@ -479,9 +479,17 @@ export async function submitOnlineDuelGuess({ origin, playerId, token, guess }) 
     const playerName = room.players.find((p) => p.id === session.playerId)?.name || "Player";
     room.roomChatMessages = [
       ...room.roomChatMessages,
-      { playerId: session.playerId, name: playerName, text: normalizedGuess, at: new Date(now).toISOString() },
+      {
+        playerId: session.playerId,
+        name: playerName,
+        // Store the readable (censored, length-capped) message, not the
+        // stripped/lowercased normalized form.
+        text: normalizeGuessDisplay(guess),
+        at: new Date(now).toISOString(),
+      },
     ].slice(-50);
-    await saveRoom(origin, room);
+    room.updatedAt = new Date(now).toISOString();
+    await persistRoom(room);
     return {
       status: ROOM_STATUS_WAITING,
       playerId: session.playerId,
