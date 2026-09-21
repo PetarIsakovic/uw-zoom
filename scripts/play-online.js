@@ -120,6 +120,8 @@ const state = {
   queueTitleTick: 0,
   queueTitleTimer: 0,
   pendingRoomGuesses: [],
+  lobbyChatLog: null,
+  lobbyChatLogRoomId: "",
   lastGuessSentAt: 0,
   currentZoomRoundKey: "",
   preloadedImageUrl: "",
@@ -1961,6 +1963,8 @@ function clearSession(options = {}) {
   state.token = "";
   state.latestPayload = null;
   state.pendingRoomGuesses = [];
+  state.lobbyChatLog = null;
+  state.lobbyChatLogRoomId = "";
   if (!preserveExitCleanupSent) {
     state.exitCleanupSent = false;
   }
@@ -2202,30 +2206,61 @@ function reconcilePendingRoomGuesses(room) {
 
 function getVisibleRoomGuesses(room) {
   const roundGuesses = Array.isArray(room?.currentRound?.roomGuesses) ? room.currentRound.roomGuesses : [];
-  const lobbyChat = Array.isArray(room?.lobbyChatMessages) ? room.lobbyChatMessages : [];
-  const serverGuesses = roundGuesses.length ? roundGuesses : lobbyChat;
-  const pendingGuesses = state.pendingRoomGuesses.filter((entry) => {
-    return entry.roomId === room?.id && entry.roundIndex === Number(room?.roundIndex || 0);
-  });
 
-  if (!pendingGuesses.length) {
-    return serverGuesses;
+  // LIVE round: per-round guesses are authoritative (they reset each round).
+  if (roundGuesses.length) {
+    const pendingGuesses = state.pendingRoomGuesses.filter(
+      (entry) => entry.roomId === room?.id && entry.roundIndex === Number(room?.roundIndex || 0),
+    );
+    if (!pendingGuesses.length) return roundGuesses;
+    const merged = [...roundGuesses];
+    pendingGuesses.forEach((p) => {
+      if (!roundGuesses.some((e) => e.playerName === p.playerName && e.guess === p.guess)) merged.push(p);
+    });
+    merged.sort((a, b) => Date.parse(a.at || 0) - Date.parse(b.at || 0));
+    return merged;
   }
 
-  const mergedGuesses = [...serverGuesses];
+  // LOBBY (waiting) chat: accumulate into a client-side log keyed by
+  // player+text+timestamp. This makes the chat additive so a stale poll (S3
+  // eventual consistency) that momentarily lacks a message can't make it blink
+  // out. We merge in both server messages and our own optimistic messages.
+  const lobbyChat = Array.isArray(room?.lobbyChatMessages) ? room.lobbyChatMessages : [];
+  if (!state.lobbyChatLog || state.lobbyChatLogRoomId !== room?.id) {
+    state.lobbyChatLog = new Map();
+    state.lobbyChatLogRoomId = room?.id || "";
+  }
+  const log = state.lobbyChatLog;
+  const serverKey = (m) =>
+    `s|${m.playerId || m.playerName || ""}|${String(m.guess || "").trim().toLocaleLowerCase()}|${
+      Math.round(Date.parse(m.at || "") / 1000) || 0
+    }`;
+  const pairKey = (m) => `${m.playerId || m.playerName || ""}|${String(m.guess || "").trim().toLocaleLowerCase()}`;
 
-  pendingGuesses.forEach((pendingEntry) => {
-    const alreadyPresent = serverGuesses.some((entry) => {
-      return entry.playerName === pendingEntry.playerName && entry.guess === pendingEntry.guess;
-    });
+  // Fold in server messages (authoritative). Additive: once seen, a later stale
+  // poll that lacks them can't remove them.
+  for (const msg of lobbyChat) {
+    log.set(serverKey(msg), { ...msg, pending: false, _pair: pairKey(msg) });
+  }
 
-    if (!alreadyPresent) {
-      mergedGuesses.push(pendingEntry);
-    }
-  });
+  // Fold in our optimistic messages, but only if the server hasn't already
+  // confirmed a matching (same player + text) message.
+  const confirmedPairs = new Set(Array.from(log.values()).map((m) => m._pair));
+  for (const p of state.pendingRoomGuesses) {
+    if (p.roomId !== room?.id) continue;
+    const pk = pairKey(p);
+    if (confirmedPairs.has(pk)) continue;
+    log.set(`p|${p.localId}`, { ...p, _pair: pk });
+  }
 
-  mergedGuesses.sort((left, right) => Date.parse(left.at || 0) - Date.parse(right.at || 0));
-  return mergedGuesses;
+  // Drop any lingering optimistic entries now confirmed by the server.
+  for (const [k, v] of log) {
+    if (k.startsWith("p|") && confirmedPairs.has(v._pair)) log.delete(k);
+  }
+
+  const all = Array.from(log.values());
+  all.sort((a, b) => Date.parse(a.at || 0) - Date.parse(b.at || 0));
+  return all.slice(-50);
 }
 
 function rerenderActiveRoom() {
