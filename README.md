@@ -96,13 +96,21 @@ Because the browser uploads directly to the presigned S3 URL, set bucket CORS si
   {
     "AllowedHeaders": ["*"],
     "AllowedMethods": ["POST", "GET", "HEAD"],
-    "AllowedOrigins": ["http://localhost:8888", "https://your-site.netlify.app"],
+    "AllowedOrigins": [
+      "http://localhost:8888",
+      "https://your-site.netlify.app",
+      "https://uwzoom.com",
+      "https://www.uwzoom.com"
+    ],
     "ExposeHeaders": ["ETag"]
   }
 ]
 ```
 
-Replace the Netlify domain with your real production URL.
+Include every origin the site is served from. The browser uploads directly to
+S3, so any origin missing here (for example a custom domain you add later) will
+fail the CORS preflight with an "S3 CORS issue" error. Replace the Netlify and
+custom-domain entries with your real URLs.
 
 ### Strongly recommended lifecycle rules
 
