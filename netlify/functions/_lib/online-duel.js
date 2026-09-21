@@ -3,6 +3,7 @@ import { normalizeAvatarSelection } from "./avatar-selection.js";
 import { censorProfanity } from "./censor.js";
 import { HttpError } from "./http.js";
 import { listPlayableCatalogImages } from "./image-catalog.js";
+import { appendRoomChatMessage, loadRoomChatMessages } from "./online-duel-chat.js";
 import { deleteObject, getJson, listJson, putJson, storageConfigured } from "./storage.js";
 
 const ONLINE_QUEUE_PREFIX = "app/online-duel/queue";
@@ -224,6 +225,7 @@ export async function joinOnlineDuel({ origin, name, playerId, token, avatar, ro
     }
 
     const room = await joinPrivateRoom(origin, requestedRoomId, session);
+    await hydrateRoomChatMessages(room);
 
     return {
       status: room.status,
@@ -472,24 +474,22 @@ export async function submitOnlineDuelGuess({ origin, playerId, token, guess }) 
   const now = Date.now();
 
   if (room.status === ROOM_STATUS_WAITING) {
-    // In the lobby, store messages as chat so all players can see them
     const normalizedGuess = normalizeGuess(guess);
     if (!normalizedGuess) throw new HttpError(400, "Type a message before sending.");
-    if (!Array.isArray(room.roomChatMessages)) room.roomChatMessages = [];
     const playerName = room.players.find((p) => p.id === session.playerId)?.name || "Player";
-    room.roomChatMessages = [
-      ...room.roomChatMessages,
-      {
-        playerId: session.playerId,
-        name: playerName,
-        // Store the readable (censored, length-capped) message, not the
-        // stripped/lowercased normalized form.
-        text: normalizeGuessDisplay(guess),
-        at: new Date(now).toISOString(),
-      },
-    ].slice(-50);
-    room.updatedAt = new Date(now).toISOString();
-    await persistRoom(room);
+
+    // Chat lives in its own atomically-updated object. Heartbeat polls write the
+    // room object frequently; keeping chat separate prevents a stale heartbeat
+    // write from deleting a message that was just accepted.
+    room.roomChatMessages = await appendRoomChatMessage({
+      roomId: room.id,
+      playerId: session.playerId,
+      name: playerName,
+      text: normalizeGuessDisplay(guess),
+      at: new Date(now).toISOString(),
+      legacyMessages: room.roomChatMessages,
+    });
+
     return {
       status: ROOM_STATUS_WAITING,
       playerId: session.playerId,
@@ -536,13 +536,17 @@ export async function submitOnlineDuelGuess({ origin, playerId, token, guess }) 
 
   if (playerGuesses.some((g) => g.correct)) {
     const playerName = room.players.find((p) => p.id === session.playerId)?.name || "Player";
-    if (!Array.isArray(room.roomChatMessages)) room.roomChatMessages = [];
-    room.roomChatMessages = [
-      ...room.roomChatMessages,
-      { playerId: session.playerId, name: playerName, text: normalizeGuess(guess), at: new Date(now).toISOString() },
-    ].slice(-50);
+    room.roomChatMessages = await appendRoomChatMessage({
+      roomId: room.id,
+      playerId: session.playerId,
+      name: playerName,
+      text: normalizeGuessDisplay(guess),
+      at: new Date(now).toISOString(),
+      legacyMessages: room.roomChatMessages,
+    });
     const syncedRoom = await syncRoom(room);
     await persistRoom(syncedRoom);
+    await hydrateRoomChatMessages(syncedRoom);
     return {
       status: syncedRoom.status,
       playerId: session.playerId,
@@ -758,6 +762,8 @@ async function tryLoadAssignedRoom(origin, session) {
     await persistRoom(syncedRoom);
   }
 
+  await hydrateRoomChatMessages(syncedRoom);
+
   return {
     status: syncedRoom.status,
     room: buildPublicRoomState(syncedRoom, session.playerId, origin),
@@ -807,6 +813,7 @@ async function loadRoomForPlayer(origin, session) {
     await persistRoom(syncedRoom);
   }
 
+  await hydrateRoomChatMessages(syncedRoom);
   validatePlayerToken(syncedRoom, session.playerId, session.token);
   return syncedRoom;
 }
@@ -1204,6 +1211,11 @@ async function finalizeRoom(room) {
 
 async function persistRoom(room) {
   await putJson(roomKey(room.id), room);
+}
+
+async function hydrateRoomChatMessages(room) {
+  room.roomChatMessages = await loadRoomChatMessages(room.id, room.roomChatMessages);
+  return room;
 }
 
 function resolveCurrentRound(room, payload) {

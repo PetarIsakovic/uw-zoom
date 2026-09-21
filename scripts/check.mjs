@@ -22,6 +22,7 @@ const files = [
   "netlify/functions/_lib/image-catalog.js",
   "netlify/functions/_lib/leaderboard.js",
   "netlify/functions/_lib/online-duel.js",
+  "netlify/functions/_lib/online-duel-chat.js",
   "netlify/functions/_lib/online-wins.js",
   "netlify/functions/_lib/rate-limit.js",
   "netlify/functions/_lib/storage.js",

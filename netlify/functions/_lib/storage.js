@@ -337,3 +337,70 @@ async function streamToString(stream) {
 
   return Buffer.concat(chunks).toString("utf8");
 }
+
+/**
+ * Atomically read/modify/write one JSON object using S3 conditional writes.
+ * If another request updates the object between our GET and PUT, S3 rejects
+ * the stale ETag and we retry from the newest value instead of overwriting it.
+ *
+ * readCurrent/writeConditional are injectable for deterministic unit tests.
+ */
+export async function updateJsonAtomic(key, updater, options = {}) {
+  const maxAttempts = Math.max(1, Number(options.maxAttempts) || 8);
+  const readCurrent = options.readCurrent || (() => readJsonWithEtag(key));
+  const writeConditional = options.writeConditional || ((next, etag) => putJsonConditional(key, next, etag));
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const current = await readCurrent();
+    const next = await updater(current?.value ?? null);
+
+    try {
+      await writeConditional(next, current?.etag || "");
+      return next;
+    } catch (error) {
+      if (!isConditionalWriteConflict(error) || attempt === maxAttempts) {
+        throw error;
+      }
+    }
+  }
+
+  throw new HttpError(503, "Could not save the latest data. Please try again.");
+}
+
+async function readJsonWithEtag(key) {
+  const { bucket } = requireStorage();
+
+  try {
+    const response = await getClient().send(new GetObjectCommand({ Bucket: bucket, Key: key }));
+    const text = await streamToString(response.Body);
+    return { value: JSON.parse(text), etag: String(response.ETag || "") };
+  } catch (error) {
+    if (
+      error?.$metadata?.httpStatusCode === 404 ||
+      error?.name === "NoSuchKey" ||
+      error?.name === "NotFound"
+    ) {
+      return { value: null, etag: "" };
+    }
+    throw error;
+  }
+}
+
+async function putJsonConditional(key, value, etag) {
+  const { bucket } = requireStorage();
+
+  await getClient().send(
+    new PutObjectCommand({
+      Bucket: bucket,
+      Key: key,
+      Body: JSON.stringify(value, null, 2),
+      ContentType: "application/json; charset=utf-8",
+      ...(etag ? { IfMatch: etag } : { IfNoneMatch: "*" }),
+    }),
+  );
+}
+
+function isConditionalWriteConflict(error) {
+  const status = Number(error?.$metadata?.httpStatusCode || 0);
+  return status === 409 || status === 412 || error?.name === "PreconditionFailed" || error?.name === "ConditionalRequestConflict";
+}

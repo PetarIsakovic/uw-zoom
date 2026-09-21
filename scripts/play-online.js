@@ -120,8 +120,6 @@ const state = {
   queueTitleTick: 0,
   queueTitleTimer: 0,
   pendingRoomGuesses: [],
-  lobbyChatLog: null,
-  lobbyChatLogRoomId: "",
   lastGuessSentAt: 0,
   currentZoomRoundKey: "",
   preloadedImageUrl: "",
@@ -606,6 +604,7 @@ async function refreshState() {
       `/api/online-duel-room?playerId=${encodeURIComponent(state.playerId)}&token=${encodeURIComponent(state.token)}`,
     );
 
+    reconcilePendingRoomGuessesFromPoll(payload.room);
     renderPayload(payload);
   } catch (error) {
     clearSession();
@@ -678,10 +677,10 @@ async function submitGuess() {
       },
     });
 
-    // Don't remove the pending entry here. A stale poll (eventual consistency)
-    // can arrive without our message yet and make it flash/disappear. Instead we
-    // keep the pending copy visible and reconcile it away only once the server's
-    // copy actually shows up (see reconcilePendingRoomGuesses on each render).
+    // Keep the optimistic copy until a subsequent room poll confirms the
+    // atomically-persisted server message. An older poll may already be in
+    // flight; removing this on the POST echo would let that stale response make
+    // the message disappear briefly.
     renderPayload(payload);
   } catch (error) {
     removePendingRoomGuess(pendingEntry.localId);
@@ -1018,7 +1017,6 @@ function renderRoom(room) {
     return;
   }
 
-  reconcilePendingRoomGuesses(room);
   renderScoreboard(room.players || [], room.hostId || "");
   renderRoundHistory(room.completedRounds || []);
   renderGuessHistory(yourGuessList, room.currentRound?.youGuesses || [], "No guesses yet.");
@@ -1963,8 +1961,6 @@ function clearSession(options = {}) {
   state.token = "";
   state.latestPayload = null;
   state.pendingRoomGuesses = [];
-  state.lobbyChatLog = null;
-  state.lobbyChatLogRoomId = "";
   if (!preserveExitCleanupSent) {
     state.exitCleanupSent = false;
   }
@@ -2175,92 +2171,55 @@ function removePendingRoomGuess(localId) {
   state.pendingRoomGuesses = state.pendingRoomGuesses.filter((entry) => entry.localId !== localId);
 }
 
-// Remove pending (optimistic) messages once the server's copy actually shows up,
-// or after a safety timeout. This prevents the "flash then disappear then
-// reappear" caused by a stale poll arriving before the message is persisted:
-// we keep showing our own message until the server confirms it.
-function reconcilePendingRoomGuesses(room) {
-  if (!state.pendingRoomGuesses.length) return;
+// Only a GET poll may confirm/remove optimistic entries. The POST response is
+// an echo of our own write and an older GET may still arrive afterward; waiting
+// for poll confirmation keeps the message visible through that ordering race.
+function reconcilePendingRoomGuessesFromPoll(room) {
+  if (!room || !state.pendingRoomGuesses.length) return;
 
-  const roundGuesses = Array.isArray(room?.currentRound?.roomGuesses) ? room.currentRound.roomGuesses : [];
-  const lobbyChat = Array.isArray(room?.lobbyChatMessages) ? room.lobbyChatMessages : [];
-  const serverGuesses = roundGuesses.length ? roundGuesses : lobbyChat;
-  const norm = (v) => String(v || "").trim().toLocaleLowerCase();
+  const serverGuesses = Array.isArray(room?.currentRound?.roomGuesses)
+    ? room.currentRound.roomGuesses
+    : Array.isArray(room?.lobbyChatMessages)
+      ? room.lobbyChatMessages
+      : [];
+  const normalize = (value) => String(value || "").trim().toLocaleLowerCase();
   const now = Date.now();
-  const MAX_PENDING_MS = 15000;
 
   state.pendingRoomGuesses = state.pendingRoomGuesses.filter((pending) => {
-    // Drop entries that are stale (safety net) or belong to a different room/round.
-    if (pending.roomId !== room?.id) return false;
-    if (now - Date.parse(pending.at || "") > MAX_PENDING_MS) return false;
+    if (pending.roomId !== room.id) return false;
+    if (now - Date.parse(pending.at || "") > 15000) return false;
 
-    // Keep until the server has a matching message from the same player.
-    const confirmed = serverGuesses.some(
+    return !serverGuesses.some(
       (entry) =>
-        (entry.playerId ? entry.playerId === pending.playerId : entry.playerName === pending.playerName) &&
-        norm(entry.guess) === norm(pending.guess),
+        entry.playerId === pending.playerId && normalize(entry.guess) === normalize(pending.guess),
     );
-    return !confirmed;
   });
 }
 
 function getVisibleRoomGuesses(room) {
-  const roundGuesses = Array.isArray(room?.currentRound?.roomGuesses) ? room.currentRound.roomGuesses : [];
+  const serverGuesses = Array.isArray(room?.currentRound?.roomGuesses)
+    ? room.currentRound.roomGuesses
+    : Array.isArray(room?.lobbyChatMessages)
+      ? room.lobbyChatMessages
+      : [];
+  const pendingGuesses = state.pendingRoomGuesses.filter((entry) => {
+    return entry.roomId === room?.id && entry.roundIndex === Number(room?.roundIndex || 0);
+  });
 
-  // LIVE round: per-round guesses are authoritative (they reset each round).
-  if (roundGuesses.length) {
-    const pendingGuesses = state.pendingRoomGuesses.filter(
-      (entry) => entry.roomId === room?.id && entry.roundIndex === Number(room?.roundIndex || 0),
-    );
-    if (!pendingGuesses.length) return roundGuesses;
-    const merged = [...roundGuesses];
-    pendingGuesses.forEach((p) => {
-      if (!roundGuesses.some((e) => e.playerName === p.playerName && e.guess === p.guess)) merged.push(p);
+  if (!pendingGuesses.length) {
+    return serverGuesses;
+  }
+
+  const mergedGuesses = [...serverGuesses];
+  pendingGuesses.forEach((pendingEntry) => {
+    const alreadyPresent = serverGuesses.some((entry) => {
+      return entry.playerId === pendingEntry.playerId && entry.guess === pendingEntry.guess;
     });
-    merged.sort((a, b) => Date.parse(a.at || 0) - Date.parse(b.at || 0));
-    return merged;
-  }
+    if (!alreadyPresent) mergedGuesses.push(pendingEntry);
+  });
 
-  // LOBBY (waiting) chat: accumulate into a client-side log keyed by
-  // player+text+timestamp. This makes the chat additive so a stale poll (S3
-  // eventual consistency) that momentarily lacks a message can't make it blink
-  // out. We merge in both server messages and our own optimistic messages.
-  const lobbyChat = Array.isArray(room?.lobbyChatMessages) ? room.lobbyChatMessages : [];
-  if (!state.lobbyChatLog || state.lobbyChatLogRoomId !== room?.id) {
-    state.lobbyChatLog = new Map();
-    state.lobbyChatLogRoomId = room?.id || "";
-  }
-  const log = state.lobbyChatLog;
-  const serverKey = (m) =>
-    `s|${m.playerId || m.playerName || ""}|${String(m.guess || "").trim().toLocaleLowerCase()}|${
-      Math.round(Date.parse(m.at || "") / 1000) || 0
-    }`;
-  const pairKey = (m) => `${m.playerId || m.playerName || ""}|${String(m.guess || "").trim().toLocaleLowerCase()}`;
-
-  // Fold in server messages (authoritative). Additive: once seen, a later stale
-  // poll that lacks them can't remove them.
-  for (const msg of lobbyChat) {
-    log.set(serverKey(msg), { ...msg, pending: false, _pair: pairKey(msg) });
-  }
-
-  // Fold in our optimistic messages, but only if the server hasn't already
-  // confirmed a matching (same player + text) message.
-  const confirmedPairs = new Set(Array.from(log.values()).map((m) => m._pair));
-  for (const p of state.pendingRoomGuesses) {
-    if (p.roomId !== room?.id) continue;
-    const pk = pairKey(p);
-    if (confirmedPairs.has(pk)) continue;
-    log.set(`p|${p.localId}`, { ...p, _pair: pk });
-  }
-
-  // Drop any lingering optimistic entries now confirmed by the server.
-  for (const [k, v] of log) {
-    if (k.startsWith("p|") && confirmedPairs.has(v._pair)) log.delete(k);
-  }
-
-  const all = Array.from(log.values());
-  all.sort((a, b) => Date.parse(a.at || 0) - Date.parse(b.at || 0));
-  return all.slice(-50);
+  mergedGuesses.sort((left, right) => Date.parse(left.at || 0) - Date.parse(right.at || 0));
+  return mergedGuesses;
 }
 
 function rerenderActiveRoom() {
