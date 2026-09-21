@@ -1,3 +1,4 @@
+import { rotateImages } from "./image-rotation.js";
 import { createHash, randomUUID } from "node:crypto";
 import { normalizeAvatarSelection } from "./avatar-selection.js";
 import { censorProfanity } from "./censor.js";
@@ -1016,6 +1017,7 @@ async function createRoom(origin, players, options = {}) {
       lastSeenAt: new Date(now).toISOString(),
     })),
     rounds,
+    imageCycle: 0,
     currentRoundIndex: 0,
     currentRoundStartedAt: status === ROOM_STATUS_LIVE ? new Date(now + ROUND_COUNTDOWN_MS).toISOString() : "",
     currentRoundResolvedAt: "",
@@ -1114,16 +1116,10 @@ async function syncRoom(room) {
     }
 
     if (nextRoom.currentRoundIndex >= nextRoom.rounds.length) {
-      // Endless play: we've shown every image in the catalog. Reshuffle the bag
-      // and start a fresh pass. Avoid an immediate repeat at the seam (the last
-      // image shown shouldn't be the first of the new shuffle).
-      const lastImageId = nextRoom.rounds[nextRoom.rounds.length - 1]?.id;
-      let reshuffled = shuffleArray(nextRoom.rounds);
-      if (reshuffled.length > 1 && reshuffled[0]?.id === lastImageId) {
-        const swapIndex = 1 + Math.floor(Math.random() * (reshuffled.length - 1));
-        [reshuffled[0], reshuffled[swapIndex]] = [reshuffled[swapIndex], reshuffled[0]];
-      }
-      nextRoom.rounds = reshuffled;
+      // Concurrent polls must choose the same complete next cycle. Defer the
+      // most recently shown half so crossing the boundary avoids quick repeats.
+      nextRoom.imageCycle = normalizeRoundIndex(nextRoom.imageCycle) + 1;
+      nextRoom.rounds = rotateImages(nextRoom.rounds, `${nextRoom.id}:${nextRoom.imageCycle}`);
       nextRoom.currentRoundIndex = 0;
       for (const round of nextRoom.rounds) {
         round.startFocusX = 50;

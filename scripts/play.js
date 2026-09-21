@@ -1,3 +1,4 @@
+import { restoreImageQueue } from "/scripts/image-queue.js";
 import { censorProfanity, normalizeAnswer, requestJson, setStatus } from "/scripts/shared.js";
 import { buildDemoImages } from "/shared/demo-images.js";
 import {
@@ -43,7 +44,7 @@ let wordBankIndex = createWordBankIndex([]);
 const state = {
   images: [],
   current: null,
-  runQueue: [],
+  imageQueue: null,
   runStartedAt: 0,
   wrongGuesses: 0,
   roundLocked: true,
@@ -162,22 +163,6 @@ form.addEventListener("submit", (event) => {
     revealImage(false);
     updateStreakMeter();
 
-    if (!state.runQueue.length) {
-      state.highScore = Math.max(state.highScore, state.streak);
-      setStatus(
-        feedback,
-        `Correct. It was ${state.current.answer}. We ran out of images and you won.`,
-        "success",
-      );
-      goToGameOver({
-        result: "win",
-        score: state.streak,
-        highScore: state.highScore,
-        answer: state.current.answer,
-      });
-      return;
-    }
-
     setStatus(
       feedback,
       `Correct. It was ${state.current.answer}. Streak ${state.streak}. Next image loading...`,
@@ -221,7 +206,11 @@ form.addEventListener("submit", (event) => {
 });
 
 function startNewGame() {
-  state.runQueue = shuffleArray(state.images);
+  try {
+    state.imageQueue = JSON.parse(localStorage.getItem("uwzoom.solo-image-queue"));
+  } catch {
+    state.imageQueue = null;
+  }
   state.runStartedAt = Date.now();
   state.streak = 0;
   updateStreakMeter();
@@ -229,7 +218,9 @@ function startNewGame() {
 }
 
 async function loadNextRound(options = {}) {
-  const nextRound = state.runQueue.shift();
+  state.imageQueue = restoreImageQueue(state.images, state.imageQueue);
+  const nextId = state.imageQueue.remaining[0];
+  const nextRound = state.images.find((entry) => entry.id === nextId);
 
   if (!nextRound) {
     return;
@@ -268,6 +259,13 @@ async function loadNextRound(options = {}) {
     return;
   }
 
+  state.imageQueue.remaining.shift();
+  state.imageQueue.seen.push(nextId);
+  try {
+    localStorage.setItem("uwzoom.solo-image-queue", JSON.stringify(state.imageQueue));
+  } catch {
+    // Storage may be unavailable; the in-memory queue still avoids repeats.
+  }
   image.src = nextRound.imageUrl;
   image.alt = `Mystery image for ${nextRound.answer}`;
   state.startFocusX = 15 + Math.floor(Math.random() * 70);
@@ -278,7 +276,7 @@ async function loadNextRound(options = {}) {
   input.focus();
   setPlayLoading(false);
   setStatus(feedback, "");
-  void warmImageCache(state.runQueue[0]?.imageUrl);
+  void warmImageCache(state.images.find((entry) => entry.id === state.imageQueue.remaining[0])?.imageUrl);
 }
 
 function updateZoom() {
@@ -552,17 +550,6 @@ function resolveFatalApiError(result, matchText) {
   }
 
   return new Error(message);
-}
-
-function shuffleArray(values) {
-  const copy = [...values];
-
-  for (let index = copy.length - 1; index > 0; index -= 1) {
-    const randomIndex = Math.floor(Math.random() * (index + 1));
-    [copy[index], copy[randomIndex]] = [copy[randomIndex], copy[index]];
-  }
-
-  return copy;
 }
 
 function loadPreferredPlayerName() {
