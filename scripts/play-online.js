@@ -676,7 +676,10 @@ async function submitGuess() {
       },
     });
 
-    removePendingRoomGuess(pendingEntry.localId);
+    // Don't remove the pending entry here. A stale poll (eventual consistency)
+    // can arrive without our message yet and make it flash/disappear. Instead we
+    // keep the pending copy visible and reconcile it away only once the server's
+    // copy actually shows up (see reconcilePendingRoomGuesses on each render).
     renderPayload(payload);
   } catch (error) {
     removePendingRoomGuess(pendingEntry.localId);
@@ -1013,6 +1016,7 @@ function renderRoom(room) {
     return;
   }
 
+  reconcilePendingRoomGuesses(room);
   renderScoreboard(room.players || [], room.hostId || "");
   renderRoundHistory(room.completedRounds || []);
   renderGuessHistory(yourGuessList, room.currentRound?.youGuesses || [], "No guesses yet.");
@@ -2165,6 +2169,35 @@ function pushPendingRoomGuess(entry) {
 
 function removePendingRoomGuess(localId) {
   state.pendingRoomGuesses = state.pendingRoomGuesses.filter((entry) => entry.localId !== localId);
+}
+
+// Remove pending (optimistic) messages once the server's copy actually shows up,
+// or after a safety timeout. This prevents the "flash then disappear then
+// reappear" caused by a stale poll arriving before the message is persisted:
+// we keep showing our own message until the server confirms it.
+function reconcilePendingRoomGuesses(room) {
+  if (!state.pendingRoomGuesses.length) return;
+
+  const roundGuesses = Array.isArray(room?.currentRound?.roomGuesses) ? room.currentRound.roomGuesses : [];
+  const lobbyChat = Array.isArray(room?.lobbyChatMessages) ? room.lobbyChatMessages : [];
+  const serverGuesses = roundGuesses.length ? roundGuesses : lobbyChat;
+  const norm = (v) => String(v || "").trim().toLocaleLowerCase();
+  const now = Date.now();
+  const MAX_PENDING_MS = 15000;
+
+  state.pendingRoomGuesses = state.pendingRoomGuesses.filter((pending) => {
+    // Drop entries that are stale (safety net) or belong to a different room/round.
+    if (pending.roomId !== room?.id) return false;
+    if (now - Date.parse(pending.at || "") > MAX_PENDING_MS) return false;
+
+    // Keep until the server has a matching message from the same player.
+    const confirmed = serverGuesses.some(
+      (entry) =>
+        (entry.playerId ? entry.playerId === pending.playerId : entry.playerName === pending.playerName) &&
+        norm(entry.guess) === norm(pending.guess),
+    );
+    return !confirmed;
+  });
 }
 
 function getVisibleRoomGuesses(room) {
