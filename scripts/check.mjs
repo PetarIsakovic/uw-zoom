@@ -11,6 +11,7 @@ const files = [
   "scripts/play.js",
   "scripts/game-over.js",
   "scripts/play-online.js",
+  "scripts/room-guess-feed.js",
   "scripts/review.js",
   "scripts/upload.js",
   "netlify/functions/_lib/http.js",

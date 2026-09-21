@@ -1388,6 +1388,14 @@ function buildPublicRoomState(room, playerId, origin) {
     Number.isFinite(lobbyStartsAtMs)
       ? Math.max(0, lobbyStartsAtMs - now)
       : 0;
+  // One feed shape for every room state. Waiting-lobby chat and live-game chat
+  // now use the exact same getPublicRoomGuesses payload path.
+  const roomGuesses = getPublicRoomGuesses(
+    room.status === ROOM_STATUS_WAITING ? null : room.currentRoundGuesses,
+    room.players,
+    playerId,
+    room.roomChatMessages,
+  );
 
   return {
     id: room.id,
@@ -1411,6 +1419,7 @@ function buildPublicRoomState(room, playerId, origin) {
     you: buildPublicPlayer(you, room.scores, playerId),
     opponent: buildPublicPlayer(primaryOpponent, room.scores, playerId),
     players,
+    roomGuesses,
     currentRound: currentRound
       ? {
           imageUrl: currentRound.imageUrl,
@@ -1449,7 +1458,7 @@ function buildPublicRoomState(room, playerId, origin) {
           letterHint: "",
           youGuesses: getPublicGuesses(room.currentRoundGuesses?.[playerId]),
           opponentGuesses: getPublicGuesses(room.currentRoundGuesses?.[primaryOpponent?.id]),
-          roomGuesses: getPublicRoomGuesses(room.currentRoundGuesses, room.players, playerId, room.roomChatMessages),
+          roomGuesses,
         }
       : null,
     completedRounds: room.completedRounds.map((round) => ({

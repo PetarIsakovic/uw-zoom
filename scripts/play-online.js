@@ -8,6 +8,7 @@ import {
   stashPendingOnlineLeave,
 } from "/scripts/shared.js";
 import { readAvatarSelectionFromSearchParams } from "/shared/avatar-selection.js";
+import { getVisibleRoomGuesses as mergeVisibleRoomGuesses } from "/scripts/room-guess-feed.js";
 import { searchInWordBank } from "/shared/word-bank.js";
 
 const entryForm = document.querySelector("#online-entry-form");
@@ -164,10 +165,9 @@ function detectAndPlaySounds(room, snapshot) {
   const resolvedAt = round?.resolvedAt ?? null;
   const playerCount = room.playerCount ?? 0;
   const allRoomGuesses = getVisibleRoomGuesses(room);
-  const now = Date.now();
   const guessCount = allRoomGuesses.filter((g) => !g.isChat).length;
   const chatCount = allRoomGuesses.filter(
-    (g) => g.isChat && g.playerId !== room.you?.id && now - Date.parse(g.at || "") >= BOT_CHAT_DELAY_MS,
+    (g) => g.isChat && g.playerId !== room.you?.id,
   ).length;
   const timerSeconds = snapshot.timerCount ?? null;
 
@@ -1574,28 +1574,19 @@ function renderRoundHistory(rounds) {
   }
 }
 
-const BOT_CHAT_DELAY_MS = 3500;
-
 function renderGuessHistory(container, guesses, emptyText) {
   if (!container) {
     return;
   }
 
-  // Filter out bot chat messages that haven't "arrived" yet — creates a natural delay
-  const now = Date.now();
-  const visible = guesses.filter((entry) => {
-    if (!entry.isChat) return true;
-    return now - Date.parse(entry.at || "") >= BOT_CHAT_DELAY_MS;
-  });
-
   container.replaceChildren();
 
-  if (!visible.length) {
+  if (!guesses.length) {
     container.append(buildEmptyListItem(emptyText));
     return;
   }
 
-  for (const entry of visible) {
+  for (const entry of guesses) {
     const item = document.createElement("li");
     item.className = "play-online-chat-message";
     const displayGuess = censorProfanity(entry.guess, { maxLength: 80 });
@@ -2177,11 +2168,7 @@ function removePendingRoomGuess(localId) {
 function reconcilePendingRoomGuessesFromPoll(room) {
   if (!room || !state.pendingRoomGuesses.length) return;
 
-  const serverGuesses = Array.isArray(room?.currentRound?.roomGuesses)
-    ? room.currentRound.roomGuesses
-    : Array.isArray(room?.lobbyChatMessages)
-      ? room.lobbyChatMessages
-      : [];
+  const serverGuesses = mergeVisibleRoomGuesses(room);
   const normalize = (value) => String(value || "").trim().toLocaleLowerCase();
   const now = Date.now();
 
@@ -2197,29 +2184,7 @@ function reconcilePendingRoomGuessesFromPoll(room) {
 }
 
 function getVisibleRoomGuesses(room) {
-  const serverGuesses = Array.isArray(room?.currentRound?.roomGuesses)
-    ? room.currentRound.roomGuesses
-    : Array.isArray(room?.lobbyChatMessages)
-      ? room.lobbyChatMessages
-      : [];
-  const pendingGuesses = state.pendingRoomGuesses.filter((entry) => {
-    return entry.roomId === room?.id && entry.roundIndex === Number(room?.roundIndex || 0);
-  });
-
-  if (!pendingGuesses.length) {
-    return serverGuesses;
-  }
-
-  const mergedGuesses = [...serverGuesses];
-  pendingGuesses.forEach((pendingEntry) => {
-    const alreadyPresent = serverGuesses.some((entry) => {
-      return entry.playerId === pendingEntry.playerId && entry.guess === pendingEntry.guess;
-    });
-    if (!alreadyPresent) mergedGuesses.push(pendingEntry);
-  });
-
-  mergedGuesses.sort((left, right) => Date.parse(left.at || 0) - Date.parse(right.at || 0));
-  return mergedGuesses;
+  return mergeVisibleRoomGuesses(room, state.pendingRoomGuesses);
 }
 
 function rerenderActiveRoom() {
