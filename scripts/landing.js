@@ -206,7 +206,7 @@ function setupLandingSetup() {
     });
   });
 
-  return ensureAvatarAssets().catch((error) => {
+  return ensureAvatarAssets({ randomizeInitialSelection: !initialAvatarSelection }).catch((error) => {
     console.error("Failed to load avatar atlases.", error);
     drawAvatarFallback();
     syncPlayLinks();
@@ -702,7 +702,7 @@ function getAnimatedAvatarFrame(option) {
   return option.frames[avatarAnimationFrameIndex % option.frames.length] || option.frames[0] || null;
 }
 
-async function ensureAvatarAssets() {
+async function ensureAvatarAssets({ randomizeInitialSelection = false } = {}) {
   if (avatarAssetsPromise) {
     return avatarAssetsPromise;
   }
@@ -737,6 +737,9 @@ async function ensureAvatarAssets() {
       })),
     ];
 
+    if (randomizeInitialSelection) {
+      randomizeAvatarSelection();
+    }
     normalizeAvatarIndexes();
     startAvatarAnimation();
     renderAvatarSelection();
